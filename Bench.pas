@@ -11,6 +11,8 @@ var
   n : cardinal;
   vm : ParseVm;
   res : ParseState;
+  text_mem : array [0..121] of char;
+  pcmd_mem : array [0..17] of char;
 begin
 
   digit_parser := CharacterRangeParser('0', '9');
@@ -18,20 +20,20 @@ begin
   digit_parser := AlternativeParsers(number_parser, digit_parser);
   BackpatchRight(number_parser, digit_parser);
 
-  FileOpen(@cmd, 'bench.pcmd', FMODE_WRITE);
+  MemoryFileOpen(@cmd, pcmd_mem, 18, FMODE_WRITE);
   CompileParser(@cmd, digit_parser);
   FileClose(@cmd);
 
-  FileOpen(@inp, 'bench.txt', FMODE_WRITE);
-  for n := 0 to 121 do
+  MemoryFileOpen(@inp, text_mem, sizeof(text_mem), FMODE_WRITE);
+  for n := 0 to (sizeof(text_mem)) do
     begin
       i := char((((n >> 4) xor (n)) mod 10) + ord('0'));
       FileWrite(@inp, i);
     end;
   FileClose(@inp);
 
-  FileOpen(@cmd, 'bench.pcmd', FMODE_READ);
-  FileOpen(@inp, 'bench.txt', FMODE_READ);
+  MemoryFileOpen(@cmd, pcmd_mem, 18, FMODE_READ);
+  MemoryFileOpen(@inp, text_mem, sizeof(text_mem), FMODE_READ);
   vm := NewParserVm(@cmd, @inp);
 
   for n := 0 to 64 do

@@ -1,5 +1,26 @@
 - Handles for various parsers?
-- Grammar description files
+    - What kind of output do we want?
+        - A file, that gets written to as the output? With
+            a structure indicating what was parsed, and what locations?
+        - Or a series of callbacks? on the first successful run of a
+            parser on a location?
+
+    - We could use the callback system to build the "file output" system
+        - So lets build the callback system
+
+    - Bind a callback to a given command-file start point?
+        - When a return happens after that start-point, we can call the
+            callback with the result?
+
 - Memory based files for commands?
-- Range parser ('n to n')
-- Different sequence implementation? One with fewer calls?
+
+- Grammar description files
+    - A 'bootstrap' parser, hard coded and compiled in to memory command
+        file. Use this to parse the parser-description
+
+
+- How is error handling going to work???
+
+- Standardized length-start-pointer string encoding?
+
+- Limited space for memos?
