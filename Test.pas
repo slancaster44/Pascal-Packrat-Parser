@@ -139,7 +139,7 @@ begin
 
   Assert(vm.stateStack[vm.statePointer-1].success, 'vm parse long', 13);
   Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse long, start', 20);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 3, 'vm parse long, stop', 19);
+  Assert(vm.stateStack[vm.statePointer-1].stop = 2, 'vm parse long, stop', 19);
 
   { Same tests, but with memory-based files }
   
@@ -237,7 +237,7 @@ begin
 
   Assert(vm.stateStack[vm.statePointer-1].success, 'vm parse long', 13);
   Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse long, start', 20);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 3, 'vm parse long, stop', 19);
+  Assert(vm.stateStack[vm.statePointer-1].stop = 2, 'vm parse long, stop', 19);
 
   MemoryFileOpen(@f, test_mem, 4, FMODE_WRITE);
   FileWrite(@f, 'c');

@@ -12,8 +12,6 @@
         - When a return happens after that start-point, we can call the
             callback with the result?
 
-- Memory based files for commands?
-
 - Grammar description files
     - A 'bootstrap' parser, hard coded and compiled in to memory command
         file. Use this to parse the parser-description
@@ -24,3 +22,7 @@
 - Standardized length-start-pointer string encoding?
 
 - Limited space for memos?
+
+- Arena based memory model?
+
+- Style for names '_' vs lower vs upper

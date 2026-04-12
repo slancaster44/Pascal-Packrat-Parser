@@ -15,6 +15,8 @@ type
     _should_compile : boolean;
     _compile_offset : cardinal;
 
+    handleLocation : cardinal;
+
     case kind : ParserKind of
       PARSER_RANGE : (min_char, max_char : char);
       PARSER_SEQUENCE, PARSER_ALTERNATIVE : (left, right : ^Parser);
@@ -242,6 +244,8 @@ begin
     curCompileOffset := curCompileOffset + 6
   else if p^.kind = PARSER_ALTERNATIVE then
     curCompileOffset := curCompileOffset + 6;
+
+  p^.handleLocation := curCompileOffset;
 end;
 
 var

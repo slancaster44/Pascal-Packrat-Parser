@@ -26,6 +26,14 @@ type
     returnToAddr : cardinal;
   end;
 
+  ParseHandler = procedure (state : ParseState);
+  ParseHandlerRec = record
+    _next : ^ParseHandlerRec;
+    handle : ParseHandler;
+    location : cardinal;
+  end;
+  pParseHandlerRec = ^ParseHandlerRec;
+
   ParseVm = record
     commandFile : pTextFile;
     inputFile : pTextFile;
@@ -37,11 +45,16 @@ type
     returnStack : array [ParseVmStackPointer] of ReturnRecord;
 
     memos : pParseMemo;
+    handleRecords : pParseHandlerRec;
   end;
   pParseVm = ^ParseVm;
 
 function NewParserVm(cmd, src : pTextFile) : ParseVm; forward;
-function Parse(vm : pParseVm) : ParseState; forward;
+procedure Parse(vm : pParseVm); forward;
+procedure AddReturnHandler(
+  vm : pParseVm; 
+  location : cardinal; 
+  handle : ParseHandler); forward;
 function CompareStates(s0, s1 : ParseState) : boolean; forward;
 
 {$ifdef __IMPL__}
@@ -115,6 +128,7 @@ begin
   output.statePointer := 0;
   output.returnPointer := 0;
   output.memos := nil;
+  output.handleRecords := nil;
 
   exit (output);
 end;
@@ -189,7 +203,25 @@ procedure _singleStep(vm : pParseVm);
   procedure Return();
   var
     newMemo : pParseMemo;
+    handler : pParseHandlerRec;
+
+    procedure lookupHandler();
+    begin
+      handler := vm^.handleRecords;
+      while handler <> nil do
+        begin
+          if handler^.location = FileGetPosition(vm^.commandFile) then exit;
+          handler := handler^._next;
+        end;
+    end;
+
   begin
+    lookupHandler();
+    if handler <> nil then
+      begin
+        handler^.handle(vm^.stateStack[vm^.statePointer-1]);
+      end;
+
     Assert(vm^.returnPointer <> 0, 'return underflow', 16);
     newMemo := pParseMemo(MemoryAllocate(sizeof(ParseMemo)));
     newMemo^ := vm^.returnStack[vm^.returnPointer-1].memo;
@@ -214,8 +246,8 @@ begin
   if command = VM_COMMAND_RET then
     begin { A sequence has succeeded, combine two components }
       command := ReadCommand();
-
-      if command = char(2) then
+      
+      if (command = char(2)) and (vm^.statePointer >= 2) then
         begin
           newState := PopState();
           prevState := PopState();
@@ -259,8 +291,8 @@ begin
     FileSeek(vm^.inputFile, prevState.start);
 
   if { Call if state }
-    (not IsFileEof(vm^.inputFile)) and
     (((cardinal(command) and 1) = 0) and 
+    (not IsFileEof(vm^.inputFile)) and
     ((not hasPreviousState) or (prevState.success)))
   then
     begin
@@ -269,8 +301,8 @@ begin
       Call(call_addr);
     end
   else if { Call if not state }
-    (not IsFileEof(vm^.inputFile)) and
     ((cardinal(command) and 1) = 1) and 
+    (not IsFileEof(vm^.inputFile)) and
     ((hasPreviousState) and (not prevState.success))
   then
     begin
@@ -280,12 +312,24 @@ begin
   else { Otherwise, pass on previous result }
     begin
       PushState(prevState);
-      Return();
     end;
-
 end;
 
-function Parse(vm : pParseVm) : ParseState;
+procedure AddReturnHandler(
+  vm : pParseVm; 
+  location : cardinal; 
+  handle : ParseHandler);
+var
+  newRec : pParseHandlerRec;
+begin
+  newRec := pParseHandlerRec(MemoryAllocate(sizeof(ParseHandlerRec)));
+  newRec^._next := vm^.handleRecords;
+  newRec^.handle := handle;
+  newRec^.location := location;
+  vm^.handleRecords := newRec;
+end;
+
+procedure Parse(vm : pParseVm);
 var
   lo, hi : char;
 begin
@@ -302,8 +346,6 @@ begin
     begin
       _singleStep(vm);
     end;
-
-  exit (vm^.stateStack[vm^.statePointer-1]);
 end;
 
 {$endif}
