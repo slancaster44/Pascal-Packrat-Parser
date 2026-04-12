@@ -14,4 +14,4 @@ bench:
 	echo "Execution Time: $$runtime seconds"
 
 clean:
-	rm -f `find . -type f ! -name "*.pas" ! -name "Makefile" ! -name "*.inc" ! -name "TODO"`
+	rm -f `find . -type f ! -name "*.pas" ! -name "Makefile" ! -name "*.inc" ! -name "TODO" ! -path "./.git/*"`
