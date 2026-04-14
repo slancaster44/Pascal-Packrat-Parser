@@ -5,9 +5,11 @@
 
 const
   MAX_VM_SP = 255;
+  MAX_NUM_MEMOS = 63;
 
 type
   ParseVmStackPointer = 0..MAX_VM_SP;
+  ParseMemoPointer = 0..MAX_NUM_MEMOS;
 
   ParseState = record
     success : boolean;
@@ -15,7 +17,6 @@ type
   end;
 
   ParseMemo = record
-    next : ^ParseMemo;
     callAddr, callInpLoc, retInpLoc : cardinal;
     retState : ParseState;
   end;
@@ -25,14 +26,6 @@ type
     memo : Parsememo;
     returnToAddr : cardinal;
   end;
-
-  ParseHandler = procedure (state : ParseState);
-  ParseHandlerRec = record
-    _next : ^ParseHandlerRec;
-    handle : ParseHandler;
-    location : cardinal;
-  end;
-  pParseHandlerRec = ^ParseHandlerRec;
 
   ParseVm = record
     commandFile : pTextFile;
@@ -44,33 +37,22 @@ type
     returnPointer : ParseVmStackPointer;
     returnStack : array [ParseVmStackPointer] of ReturnRecord;
 
-    memos : pParseMemo;
-    handleRecords : pParseHandlerRec;
+    memos : array [ParseMemoPointer] of ParseMemo;
+    memoPointer : ParseMemoPointer;
+    memoHasWrapped : boolean;
   end;
   pParseVm = ^ParseVm;
 
 function NewParserVm(cmd, src : pTextFile) : ParseVm; forward;
 procedure Parse(vm : pParseVm); forward;
-procedure AddReturnHandler(
-  vm : pParseVm; 
-  location : cardinal; 
-  handle : ParseHandler); forward;
+procedure PrintVm(vm : pParseVm); forward;
 function CompareStates(s0, s1 : ParseState) : boolean; forward;
+procedure PrintState(state : ParseState); forward;
 
 {$ifdef __IMPL__}
 {$include inc/VmCommands.inc}
 {$include inc/ByteManip.inc}
 {$include inc/Memory.inc}
-
-function DEFAULT_STATE() : ParseState;
-var
-  output : ParseState;
-begin
-  output.success := false;
-  output.start := 0;
-  output.stop := 0;
-  exit(output);
-end;
 
 procedure PrintState(state : ParseState);
 begin
@@ -127,11 +109,60 @@ begin
   output.inputFile := src;
   output.statePointer := 0;
   output.returnPointer := 0;
-  output.memos := nil;
-  output.handleRecords := nil;
+  output.memoPointer := 0;
+  output.memoHasWrapped := false;
 
   exit (output);
 end;
+
+procedure InsertMemo(vm : pParseVm; memo : ParseMemo);
+begin
+  vm^.memos[vm^.memoPointer] := memo;
+  if vm^.memoPointer = MAX_NUM_MEMOS then vm^.memoHasWrapped := true;
+  vm^.memoPointer := vm^.memoPointer + 1;
+end;
+
+procedure DeleteMemo(vm : pParseVm; idx : cardinal);
+begin
+  vm^.memoPointer := vm^.memoPointer-1;
+  while idx <> vm^.memoPointer do
+    begin
+      vm^.memos[idx] := vm^.memos[idx+1];
+      idx := idx + 1;
+    end;
+end;
+
+function LookupMemo(vm : pParseVm; callAddr : cardinal) : integer;
+var
+  tmp : ParseMemo;
+  i : integer;
+begin
+  if vm^.memoPointer = 0 then exit(-1);
+  i := (vm^.memoPointer-1);
+  if vm^.memoHasWrapped then i := MAX_NUM_MEMOS;
+  for i := i downto 0 do
+    if 
+      (vm^.memos[i].callAddr = callAddr) and
+      (vm^.memos[i].callInpLoc = FileGetPosition(vm^.inputFile))
+    then
+      begin 
+        tmp := vm^.memos[i];
+        if i <> (vm^.memoPointer-1) then
+          begin
+            { Move memo to top of buffer }
+            { This insures frequently used memos remain in buffer, and }
+            { infrequently used memos do not remain in buffer }
+            DeleteMemo(vm, i); 
+            InsertMemo(vm, tmp);
+          end;
+        exit(vm^.memoPointer-1);
+      end;
+
+  //When a vm is looked up, place at top of stack
+  exit (-1);
+end;
+
+
 
 procedure _singleStep(vm : pParseVm);
 
@@ -165,35 +196,20 @@ procedure _singleStep(vm : pParseVm);
   procedure Call(addr : cardinal);
   var
     rec : ReturnRecord;
-    foundMemo : pParseMemo;
-
-    procedure _searchMemos();
-    begin
-      foundMemo := vm^.memos;
-      while foundMemo <> nil do
-        begin
-          if 
-            (foundMemo^.callAddr = addr) and
-            (foundMemo^.callInpLoc = FileGetPosition(vm^.inputFile))
-          then exit;
-
-          foundMemo := foundMemo^.next;
-        end;
-    end;
+    foundMemoIdx : integer;
   begin
 
-    _searchMemos();
-    if (foundMemo <> nil) then
+    foundMemoIdx := LookupMemo(vm, addr);
+    if (foundMemoIdx > 0) then
       begin
-        FileSeek(vm^.inputFile, foundMemo^.retInpLoc);
-        PushState(foundMemo^.retState);
+        FileSeek(vm^.inputFile, vm^.memos[foundMemoIdx].retInpLoc);
+        PushState(vm^.memos[foundMemoIdx].retState);
         exit;
       end;
 
     Assert(vm^.returnPointer < MAX_VM_SP, 'return overflow', 15);
     rec.memo.callAddr := addr;
     rec.memo.callInpLoc := FileGetPosition(vm^.inputFile);
-    rec.memo.retState := DEFAULT_STATE();
     rec.returnToAddr := FileGetPosition(vm^.commandFile);
     vm^.returnStack[vm^.returnPointer] := rec;
     vm^.returnPointer := vm^.returnPointer + 1;
@@ -202,34 +218,13 @@ procedure _singleStep(vm : pParseVm);
 
   procedure Return();
   var
-    newMemo : pParseMemo;
-    handler : pParseHandlerRec;
-
-    procedure lookupHandler();
-    begin
-      handler := vm^.handleRecords;
-      while handler <> nil do
-        begin
-          if handler^.location = FileGetPosition(vm^.commandFile) then exit;
-          handler := handler^._next;
-        end;
-    end;
-
+    newMemo : ParseMemo;
   begin
-    lookupHandler();
-    if handler <> nil then
-      begin
-        handler^.handle(vm^.stateStack[vm^.statePointer-1]);
-      end;
-
     Assert(vm^.returnPointer <> 0, 'return underflow', 16);
-    newMemo := pParseMemo(MemoryAllocate(sizeof(ParseMemo)));
-    newMemo^ := vm^.returnStack[vm^.returnPointer-1].memo;
-    newMemo^.retState := vm^.stateStack[vm^.statePointer-1];
-    newMemo^.retInpLoc := FileGetPosition(vm^.inputFile);
-
-    newMemo^.next := vm^.memos;
-    vm^.memos := newMemo;
+    newMemo := vm^.returnStack[vm^.returnPointer-1].memo;
+    newMemo.retState := vm^.stateStack[vm^.statePointer-1];
+    newMemo.retInpLoc := FileGetPosition(vm^.inputFile);
+    InsertMemo(vm, newMemo);
     
     vm^.returnPointer := vm^.returnPointer - 1;
     FileSeek(vm^.commandFile, vm^.returnStack[vm^.returnPointer].returnToAddr);
@@ -313,20 +308,6 @@ begin
     begin
       PushState(prevState);
     end;
-end;
-
-procedure AddReturnHandler(
-  vm : pParseVm; 
-  location : cardinal; 
-  handle : ParseHandler);
-var
-  newRec : pParseHandlerRec;
-begin
-  newRec := pParseHandlerRec(MemoryAllocate(sizeof(ParseHandlerRec)));
-  newRec^._next := vm^.handleRecords;
-  newRec^.handle := handle;
-  newRec^.location := location;
-  vm^.handleRecords := newRec;
 end;
 
 procedure Parse(vm : pParseVm);

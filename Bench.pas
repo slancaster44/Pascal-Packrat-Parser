@@ -4,13 +4,6 @@ program Benchmark;
 {$include inc/Combinator.inc}
 {$include inc/VmInterpreter.inc}
 
-procedure NumberHandler(state : ParseState);
-begin
-  writeln(state.success);
-  writeln(state.start);
-  writeln(state.stop);
-end;
-
 var
   digit_parser, number_parser : pParser;
   i : char;
@@ -44,14 +37,11 @@ begin
 
   MemoryFileOpen(@cmd, pcmd_mem, 18, FMODE_READ);
   MemoryFileOpen(@inp, text_mem, sizeof(text_mem), FMODE_READ);
-  vm := NewParserVm(@cmd, @inp);
-  writeln(digit_parser^.handleLocation);
-  AddReturnHandler(@vm, digit_parser^.handleLocation, NumberHandler);
 
-  Parse(@vm);
-  // for n := 0 to 64 do
-  //   begin
-  //     Parse(@vm);
-  //     FileSeek(@inp, 0);
-  //   end;
+  for n := 0 to 128 do
+    begin
+      vm := NewParserVm(@cmd, @inp);
+      Parse(@vm);
+      FileSeek(@inp, 0);
+    end;
 end.
