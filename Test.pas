@@ -62,7 +62,7 @@ begin
 
   DiskFileOpen(@f, 'test.pcmd', FMODE_READ);
   DiskFileOpen(@f1, 'test.txt', FMODE_READ);
-  vm := NewParserVm(@f, @f1);
+  InitializeVm(@vm, @f, @f1);
   Parse(@vm);
 
   FileClose(@f);
@@ -81,7 +81,7 @@ begin
 
   DiskFileOpen(@f, 'test.pcmd', FMODE_READ);
   DiskFileOpen(@f1, 'test.txt', FMODE_READ);
-  vm := NewParserVm(@f, @f1);
+  InitializeVm(@vm, @f, @f1);
   Parse(@vm);
 
   FileClose(@f);
@@ -97,7 +97,7 @@ begin
 
   DiskFileOpen(@f, 'test.pcmd', FMODE_READ);
   DiskFileOpen(@f1, 'test.txt', FMODE_READ);
-  vm := NewParserVm(@f, @f1);
+  InitializeVm(@vm, @f, @f1);
   Parse(@vm);
 
   FileClose(@f);
@@ -113,7 +113,7 @@ begin
 
   DiskFileOpen(@f, 'test.pcmd', FMODE_READ);
   DiskFileOpen(@f1, 'test.txt', FMODE_READ);
-  vm := NewParserVm(@f, @f1);
+  InitializeVm(@vm, @f, @f1);
   Parse(@vm);
 
   FileClose(@f);
@@ -131,7 +131,7 @@ begin
 
   DiskFileOpen(@f, 'test.pcmd', FMODE_READ);
   DiskFileOpen(@f1, 'test.txt', FMODE_READ);
-  vm := NewParserVm(@f, @f1);
+  InitializeVm(@vm, @f, @f1);
   Parse(@vm);
 
   FileClose(@f);
@@ -156,7 +156,7 @@ begin
 
   MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_READ);
   MemoryFileOpen(@f1, test_mem, 4, FMODE_READ);
-  vm := NewParserVm(@f, @f1);
+  InitializeVm(@vm, @f, @f1);
   Parse(@vm);
 
   Assert(vm.stateStack[vm.statePointer-1].success, 'vm parse long', 13);
@@ -177,7 +177,7 @@ begin
 
   MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_READ);
   MemoryFileOpen(@f1, test_mem, 3, FMODE_READ);
-  vm := NewParserVm(@f, @f1);
+  InitializeVm(@vm, @f, @f1);
   Parse(@vm);
 
   FileClose(@f);
@@ -194,7 +194,7 @@ begin
 
   MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_READ);
   MemoryFileOpen(@f1, test_mem, 1, FMODE_READ);
-  vm := NewParserVm(@f, @f1);
+  InitializeVm(@vm, @f, @f1);
   Parse(@vm);
 
   FileClose(@f);
@@ -210,7 +210,7 @@ begin
 
   MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_READ);
   MemoryFileOpen(@f1, test_mem, 1, FMODE_READ);
-  vm := NewParserVm(@f, @f1);
+  InitializeVm(@vm, @f, @f1);
   Parse(@vm);
 
   FileClose(@f);
@@ -228,7 +228,7 @@ begin
 
   MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_READ);
   MemoryFileOpen(@f1, test_mem, 3, FMODE_READ);
-  vm := NewParserVm(@f, @f1);
+  InitializeVm(@vm, @f, @f1);
   Parse(@vm);
 
 
@@ -248,7 +248,7 @@ begin
 
   MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_READ);
   MemoryFileOpen(@f1, test_mem, 4, FMODE_READ);
-  vm := NewParserVm(@f, @f1);
+  InitializeVm(@vm, @f, @f1);
   Parse(@vm);
 
 

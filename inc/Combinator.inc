@@ -281,12 +281,12 @@ begin
   if p^.kind = PARSER_SEQUENCE then
     begin
       FileWrite(cmdFile, VM_COMMAND_RET);
-      FileWrite(cmdFile, char(2));
+      FileWrite(cmdFile, VM_RET_TYPE_DOUBLE);
     end
   else if p^.kind = PARSER_ALTERNATIVE then
     begin
       FileWrite(cmdFile, VM_COMMAND_RET);
-      FileWrite(cmdFile, char(1));
+      FileWrite(cmdFile, VM_RET_TYPE_SINGLE);
     end;
 end;
 

@@ -40,7 +40,7 @@ begin
 
   for n := 0 to 128 do
     begin
-      vm := NewParserVm(@cmd, @inp);
+      InitializeVm(@vm, @cmd, @inp);
       Parse(@vm);
       FileSeek(@inp, 0);
     end;
