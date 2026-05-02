@@ -1,8 +1,13 @@
 
 
-test: str32 assertion memory cursor_buffer char_manip combinator
+test: all
 	fpc ./Test.pas -Fu./bin -FE./bin
 	./bin/Test
+
+all: str32 assertion memory cursor_buffer char_manip combinator bytecode
+
+bytecode:
+	fpc ./modules/ParserBytecode.pas -Fu./bin -FE./bin
 
 combinator:
 	fpc ./modules/ParserCombinators.pas -Fu./bin -FE./bin

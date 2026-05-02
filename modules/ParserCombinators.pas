@@ -9,16 +9,16 @@ type
     PARSER_RESULT         { Generates a result, given the current state }
   );
 
-  Parser = record
-    next : ^Parser;
+  rParser = record
+    next : ^rParser;
     mark : boolean;
 
     case kind : ParserKind of
       PARSER_RANGE : (min_char, max_char : char);
-      PARSER_SEQUENCE, PARSER_ALTERNATIVE : (left, right : ^Parser);
-      PARSER_RESULT : (child : ^Parser);
+      PARSER_SEQUENCE, PARSER_ALTERNATIVE : (left, right : ^rParser);
+      PARSER_RESULT : (child : ^rParser);
   end;
-  pParser = ^Parser;
+  pParser = ^rParser;
 
 function IsParserValid(p : pParser) : boolean;
 function CharacterParser(character : char) : pParser;
@@ -41,7 +41,7 @@ begin
   exit (parserInternPool);
 end;
 
-function _internParser(new_parser : Parser) : pParser;
+function _internParser(new_parser : rParser) : pParser;
 var
   curParser : pParser;
 
@@ -51,7 +51,7 @@ var
   end;
 
   function ChildrenMatch() : boolean;
-  begin { 'nil' indicates a child parser that will be added later }
+  begin { 'nil' indicates a child rParser that will be added later }
     exit (((new_parser.left <> nil) and (curParser^.left <> nil)) and
       ((new_parser.right <> nil) and (curParser^.right <> nil)) and
       (new_parser.right = curParser^.right) and 
@@ -78,7 +78,7 @@ begin
       curParser := curParser^.next;
     end;
 
-  curParser := pParser(MemoryAllocate(sizeof(Parser)));
+  curParser := pParser(MemoryAllocate(sizeof(rParser)));
   curParser^ := new_parser;
   curParser^.next := parserInternPool;
   curParser^.mark := false;
@@ -124,7 +124,7 @@ end;
 
 function CharacterParser(character : char) : pParser;
 var
-  new_parser : Parser;
+  new_parser : rParser;
 begin
   new_parser.kind := PARSER_RANGE;
   new_parser.min_char := character;
@@ -134,7 +134,7 @@ end;
 
 function CharacterRangeParser(min, max : char) : pParser;
 var
-  new_parser : Parser;
+  new_parser : rParser;
 begin
   new_parser.kind := PARSER_RANGE;
   new_parser.min_char := min;
@@ -144,7 +144,7 @@ end;
 
 function SequenceParsers(left, right : pParser) : pParser;
 var
-  new_parser : Parser;
+  new_parser : rParser;
 begin
   MakeAssertion(IsParserValid(left) 
     or (left = nil), 'Sequence parser, left not valid');
@@ -159,7 +159,7 @@ end;
 
 function ResultGeneratingParser(child : pParser) : pParser;
 var
-  new_parser : Parser;
+  new_parser : rParser;
 begin
   MakeAssertion(child <> nil, 'Child parser cannot be nil');
   MakeAssertion(IsParserValid(child), 'Child must be valid parser');
@@ -171,7 +171,7 @@ end;
 
 function AlternativeParsers(left, right : pParser) : pParser;
 var
-  new_parser : Parser;
+  new_parser : rParser;
 begin
   MakeAssertion(IsParserValid(left)
     or (left = nil), 'Alternative parser, left not valid');
@@ -186,7 +186,7 @@ end;
 
 function BackpatchLeft(parent, child: pParser) : pParser;
 var
-  new_parser : Parser;
+  new_parser : rParser;
   new_interned_parser : pParser;
 begin
   MakeAssertion(child <> nil, 'New left child nil for backpatch');
@@ -205,7 +205,7 @@ end;
 
 function BackpatchRight(parent, child: pParser) : pParser;
 var
-  new_parser : Parser;
+  new_parser : rParser;
   new_interned_parser : pParser;
 begin
   MakeAssertion(child <> nil, 'New right child nil for backpatch');

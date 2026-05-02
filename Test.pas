@@ -1,5 +1,6 @@
 program UnitTest;
-uses Memory, Assertion, CursorBuffer, CharManipulation, ParserCombinators;
+uses Memory, Assertion, CursorBuffer, CharManipulation, ParserCombinators,
+  ParserBytecode;
 
 procedure TestAllocator();
 var
@@ -197,8 +198,43 @@ begin
   MakeAssertion(p[8]^.mark = false, 'Parser mark, non-child');
 end;
 
+procedure TestWriteBytecodes();
+var
+  start_pos, end_pos : cardinal;
+  cb : rCursorBuffer;
+begin
+  DiskCursorBuffer(@cb, 'test.pcmd', BUFFER_MODE_WRITE);
+
+  start_pos := CursorBufferPosition(@cb);
+  WriteParseOpRange(@cb, 'a', 'z');
+  end_pos := CursorBufferPosition(@cb);
+  MakeAssertion((end_pos-start_pos) = ParserInstructionLength(PARSE_OP_RANGE),
+    'Unexpected length, range');
+
+  start_pos := CursorBufferPosition(@cb);
+  WriteParseOpSequence(@cb, 1, 2);
+  end_pos := CursorBufferPosition(@cb);
+  MakeAssertion((end_pos-start_pos) = ParserInstructionLength(PARSE_OP_SEQ),
+    'Unexpected length, sequence');
+
+  start_pos := CursorBufferPosition(@cb);
+  WriteParseOpAlt(@cb, 1, 2);
+  end_pos := CursorBufferPosition(@cb);
+  MakeAssertion((end_pos-start_pos) = ParserInstructionLength(PARSE_OP_ALT),
+    'Unexpected length, sequence');
+
+  start_pos := CursorBufferPosition(@cb);
+  WriteParseOpResult(@cb, 1);
+  end_pos := CursorBufferPosition(@cb);
+  MakeAssertion((end_pos-start_pos) = ParserInstructionLength(PARSE_OP_RES),
+    'Unexpected length, sequence');
+
+  CursorBufferClose(@cb);
+end;
+
 begin
   TestAllocator();
   TestBufferCursor();
   TestCharManip();
+  TestWriteBytecodes();
 end.
