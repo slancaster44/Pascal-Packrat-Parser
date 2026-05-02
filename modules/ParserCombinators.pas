@@ -29,7 +29,9 @@ function ResultGeneratingParser(child : pParser) : pParser;
 function BackpatchLeft(parent, child: pParser) : pParser;
 function BackpatchRight(parent, child: pParser) : pParser;
 function GetAllParsers() : pParser;
+procedure ParserUnmarkAll();
 procedure ParserMarkAllChildrenOf(p : pParser);
+procedure ResetParserInternPool();
 
 implementation uses Assertion, Memory;
 
@@ -39,6 +41,20 @@ var
 function GetAllParsers() : pParser;
 begin
   exit (parserInternPool);
+end;
+
+procedure ResetParserInternPool();
+var
+  cur, next : pParser;
+begin
+  cur := parserInternPool;
+  while cur <> nil do
+    begin
+      next := cur^.next;
+      MemoryDeallocate(cur);
+      cur := next;
+    end;
+  parserInternPool := nil;
 end;
 
 function _internParser(new_parser : rParser) : pParser;
@@ -229,7 +245,7 @@ begin
 
   p^.mark := true;
 
-  if (p^.kind = PARSER_RANGE) or (p^.kind = PARSER_SEQUENCE) then  
+  if (p^.kind = PARSER_ALTERNATIVE) or (p^.kind = PARSER_SEQUENCE) then  
     begin
       ParserMarkAllChildrenOf(p^.left);
       ParserMarkAllChildrenOf(p^.right);
@@ -237,6 +253,19 @@ begin
   else if (p^.kind = PARSER_RESULT) then
     begin
       ParserMarkAllChildrenOf(p^.child)
+    end;
+end;
+
+procedure ParserUnmarkAll();
+var
+  p : pParser;
+begin
+  p := parserInternPool;
+
+  while p <> nil do
+    begin
+      p^.mark := false;
+      p := p^.next;
     end;
 end;
 

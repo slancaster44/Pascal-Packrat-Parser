@@ -1,6 +1,7 @@
 program UnitTest;
-uses Memory, Assertion, CursorBuffer, CharManipulation, ParserCombinators,
-  ParserBytecode;
+
+uses Memory, Assertion, CursorBuffer, CharManipulation, 
+  ParserCombinators, ParserBytecode, ParserCompiler;
 
 procedure TestAllocator();
 var
@@ -192,10 +193,16 @@ begin
   MakeAssertion(p[10]^.left = p[11], 'Parser backpatch, indirect replace');
 
   ParserMarkAllChildrenOf(p[10]);
-  MakeAssertion(p[9]^.mark = true, 'Parser mark, child 1');
-  MakeAssertion(p[11]^.mark = true, 'Parsermark, child 2');
   MakeAssertion(p[10]^.mark = true, 'Parser mark, parent');
+  MakeAssertion(p[11]^.mark = true, 'Parser mark, child');
   MakeAssertion(p[8]^.mark = false, 'Parser mark, non-child');
+
+  ParserUnmarkAll();
+  MakeAssertion(p[10]^.mark = false, 'Parser unmark, parent');
+  MakeAssertion(p[11]^.mark = false, 'Parser unmark, child');
+  MakeAssertion(p[8]^.mark = false, 'Parser unmark, non-child');
+
+  ResetParserInternPool();
 end;
 
 procedure TestWriteBytecodes();
@@ -232,9 +239,31 @@ begin
   CursorBufferClose(@cb);
 end;
 
+procedure TestCompleteParser();
+var
+  digit_parser, digit_seq_parser, number_parser : pParser;
+  cb : rCursorBuffer;
+begin
+  digit_parser := CharacterRangeParser('0', '9');
+  digit_seq_parser := SequenceParsers(digit_parser, nil);
+  number_parser := AlternativeParsers(digit_seq_parser, digit_parser);
+  digit_seq_parser := BackpatchRight(digit_seq_parser, number_parser);
+  number_parser := ResultGeneratingParser(number_parser);
+
+  DiskCursorBuffer(@cb, 'test.pcmd', BUFFER_MODE_WRITE);
+
+  { First, only digit parser }
+  CompileParser(@cb, digit_parser);
+  CursorBufferClose(@cb);
+
+  
+end;
+
 begin
   TestAllocator();
   TestBufferCursor();
   TestCharManip();
   TestWriteBytecodes();
+  TestCombinators();
+  TestCompleteParser();
 end.
