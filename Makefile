@@ -1,17 +1,29 @@
-PC=fpc
-PCF=-g -MISO
 
-test:
-	$(PC) $(PCF) Test.pas
-	./Test
-	
-bench:
-	$(PC) $(PCF) Bench.pas
-	@start=$$(date +%s%N); \
-	./Bench; \
-	end=$$(date +%s%N); \
-	runtime=$$(echo "scale=9; ($$end - $$start) / 1000000000" | bc -l); \
-	echo "Execution Time: $$runtime seconds"
+
+test: str32 assertion memory cursor_buffer char_manip combinator
+	fpc ./Test.pas -Fu./bin -FE./bin
+	./bin/Test
+
+combinator:
+	fpc ./modules/ParserCombinators.pas -Fu./bin -FE./bin
+
+char_manip:
+	fpc ./modules/CharManipulation.pas -Fu./bin -FE./bin
+
+cursor_buffer: 
+	fpc ./modules/CursorBuffer.pas -Fu./bin -FE./bin
+
+memory: 
+	fpc ./modules/Memory.pas -Fu./bin -FE./bin
+
+assertion: 
+	fpc ./modules/Assertion.pas -Fu./bin -FE./bin
+
+str32: 
+	fpc ./modules/Str32.pas -FE./bin
+
+stroke_ego:
+	find . -name "*.pas" | xargs cat | wc -l
 
 clean:
-	rm -f `find . -type f ! -name "*.pas" ! -name "Makefile" ! -name "*.inc" ! -name "TODO" ! -path "./.git/*"`
+	rm -f `find . -type f ! -name "*.pas" ! -name "Makefile" ! -name "*.inc" ! -name "TODO" ! -path "*.git*"`

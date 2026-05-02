@@ -1,15 +1,15 @@
-{$ifndef __BYTE_MANIP_INC__}
-{$define __BYTE_MANIP_INC__}
+unit CharManipulation;
+interface
 
 const
   CHAR_BITS = 8;
   MAX_CHAR = (1 << CHAR_BITS) - 1;
 
-function GetLo(c : cardinal) : char; forward;
-function GetHi(c : cardinal) : char; forward;
-function Combine(hi, lo : char) : cardinal; forward;
+function GetLo(c : cardinal) : char;
+function GetHi(c : cardinal) : char; 
+function Combine(hi, lo : char) : cardinal;
 
-{$ifdef __IMPL__}
+implementation
 
 function GetLo(c : cardinal) : char;
 begin
@@ -26,5 +26,4 @@ begin
   exit ((cardinal(hi) << CHAR_BITS) or cardinal(lo));
 end;
 
-{$endif}
-{$endif}
+end.

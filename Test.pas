@@ -1,263 +1,204 @@
-program Test;
-{$define __IMPL__}
+program UnitTest;
+uses Memory, Assertion, CursorBuffer, CharManipulation, ParserCombinators;
 
-{$I inc/VmInterpreter.inc}
-{$I inc/Combinator.inc}
-
+procedure TestAllocator();
 var
-  f, f1 : TextFile;
+  alloc : rAllocator;
+  p0, p1, p2 : pointer;
+begin
+  InitAllocator(@alloc);
+  MakeAssertion(alloc.allocations = nil, 'Allocator init');
+
+  p0 := AllocatorAllocate(@alloc, 32);
+  p1 := AllocatorAllocate(@alloc, 32);
+  p2 := AllocatorAllocate(@alloc, 32);
+
+  AllocatorFree(@alloc, p1);
+  MakeAssertion(alloc.allocations^.memory = p2, 'dealloc middle, 1');
+  MakeAssertion(alloc.allocations^.next^.memory = p0, 'dealloc middle, 2');
+  MakeAssertion(alloc.allocations^.next^.next = nil, 'dealloc middle, 3');
+
+  DestroyAllocator(@alloc);
+  MakeAssertion(alloc.allocations = nil, 'Allocator destroy');
+
+  InitAllocator(@alloc);
+
+  p0 := AllocatorAllocate(@alloc, 32);
+  p1 := AllocatorAllocate(@alloc, 32);
+  p2 := AllocatorAllocate(@alloc, 32);
+
+  AllocatorFree(@alloc, p0);
+  MakeAssertion(alloc.allocations^.memory = p2, 'dealloc tail, 1');
+  MakeAssertion(alloc.allocations^.next^.memory = p1, 'dealloc tail, 2');
+  MakeAssertion(alloc.allocations^.next^.next = nil, 'dealloc tail, 3');
+
+  DestroyAllocator(@alloc);
+  InitAllocator(@alloc);
+
+  p0 := AllocatorAllocate(@alloc, 32);
+  p1 := AllocatorAllocate(@alloc, 32);
+  p2 := AllocatorAllocate(@alloc, 32);
+
+  AllocatorFree(@alloc, p2);
+  MakeAssertion(alloc.allocations^.memory = p1, 'dealloc head, 1');
+  MakeAssertion(alloc.allocations^.next^.memory = p0, 'dealloc head, 2');
+  MakeAssertion(alloc.allocations^.next^.next = nil, 'dealloc head, 3');
+
+  DestroyAllocator(@alloc);
+  InitAllocator(@alloc);
+
+  p0 := AllocatorAllocate(@alloc, 32);
+  p1 := AllocatorAllocate(@alloc, 32);
+  p2 := AllocatorAllocate(@alloc, 32);
+
+  AllocatorMarkMemory(@alloc, p0);
+  AllocatorMarkMemory(@alloc, p2);
+  AllocatorFreeUnmarked(@alloc);
+  MakeAssertion(alloc.allocations^.memory = p2, 'dealloc middle, 1');
+  MakeAssertion(alloc.allocations^.next^.memory = p0, 'dealloc middle, 2');
+  MakeAssertion(alloc.allocations^.next^.next = nil, 'dealloc middle, 3');
+
+  DestroyAllocator(@alloc);
+  MakeAssertion(alloc.allocations = nil, 'Allocator destroy');
+
+  InitAllocator(@alloc);
+
+  p0 := AllocatorAllocate(@alloc, 32);
+  p1 := AllocatorAllocate(@alloc, 32);
+  p2 := AllocatorAllocate(@alloc, 32);
+
+  AllocatorMarkMemory(@alloc, p1);
+  AllocatorMarkMemory(@alloc, p2);
+  AllocatorFreeUnmarked(@alloc);
+  MakeAssertion(alloc.allocations^.memory = p2, 'dealloc tail, 1');
+  MakeAssertion(alloc.allocations^.next^.memory = p1, 'dealloc tail, 2');
+  MakeAssertion(alloc.allocations^.next^.next = nil, 'dealloc tail, 3');
+
+  DestroyAllocator(@alloc);
+  InitAllocator(@alloc);
+
+  p0 := AllocatorAllocate(@alloc, 32);
+  p1 := AllocatorAllocate(@alloc, 32);
+  p2 := AllocatorAllocate(@alloc, 32);
+
+  AllocatorMarkMemory(@alloc, p0);
+  AllocatorMarkMemory(@alloc, p1);
+  AllocatorFreeUnmarked(@alloc);
+  MakeAssertion(alloc.allocations^.memory = p1, 'dealloc head, 1');
+  MakeAssertion(alloc.allocations^.next^.memory = p0, 'dealloc head, 2');
+  MakeAssertion(alloc.allocations^.next^.next = nil, 'dealloc head, 3');
+
+  DestroyAllocator(@alloc);
+end;
+
+procedure TestBufferCursor();
+var
+  cb : rCursorBuffer;
+  mem : array [0..3] of char;
+begin
+  DiskCursorBuffer(@cb, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@cb, 't');
+  CursorBufferWrite(@cb, 'e');
+  CursorBufferWrite(@cb, 's');
+  CursorBufferWrite(@cb, 't');
+  CursorBufferClose(@cb);
+
+  DiskCursorBuffer(@cb, 'test.txt', BUFFER_MODE_READ);
+  MakeAssertion(CursorBufferRead(@cb) = 't', 'Readback, disk buffer 1');
+  MakeAssertion(CursorBufferRead(@cb) = 'e', 'Readback, disk buffer 2');
+  MakeAssertion(CursorBufferRead(@cb) = 's', 'Readback, disk buffer 3');
+  MakeAssertion(CursorBufferRead(@cb) = 't', 'Readback, disk buffer 4');
+
+  CursorBufferSeek(@cb, 1);
+  MakeAssertion(CursorBufferRead(@cb) = 'e', 'Seek, disk buffer');
+  MakeAssertion(CursorBufferPosition(@cb) = 2, 'Position, disk buffer');
+  MakeAssertion(CursorBufferLength(@cb) = 4, 'Length, disk buffer');
+  MakeAssertion(CursorBufferEnd(@cb) = false, 'Not end, disk buffer');
+  CursorBufferSeek(@cb, 4);
+  MakeAssertion(CursorBufferEnd(@cb), 'End, disk buffer');
+
+  CursorBufferClose(@cb);
+
+  MemoryCursorBuffer(@cb, mem, 4, BUFFER_MODE_WRITE);
+  CursorBufferWrite(@cb, 't');
+  CursorBufferWrite(@cb, 'e');
+  CursorBufferWrite(@cb, 's');
+  CursorBufferWrite(@cb, 't');
+  CursorBufferClose(@cb);
+
+  MemoryCursorBuffer(@cb, mem, 4, BUFFER_MODE_READ);
+  MakeAssertion(CursorBufferRead(@cb) = 't', 'Readback, mem buffer 1');
+  MakeAssertion(CursorBufferRead(@cb) = 'e', 'Readback, mem buffer 2');
+  MakeAssertion(CursorBufferRead(@cb) = 's', 'Readback, mem buffer 3');
+  MakeAssertion(CursorBufferRead(@cb) = 't', 'Readback, disk buffer 4');
+
+  CursorBufferSeek(@cb, 1);
+  MakeAssertion(CursorBufferRead(@cb) = 'e', 'Seek, mem buffer');
+  MakeAssertion(CursorBufferPosition(@cb) = 2, 'Position, mem buffer');
+  MakeAssertion(CursorBufferLength(@cb) = 4, 'Length, mem buffer');
+  MakeAssertion(CursorBufferEnd(@cb) = false, 'Not end, mem buffer');
+  CursorBufferSeek(@cb, 4);
+  MakeAssertion(CursorBufferEnd(@cb), 'End, mem buffer');
+end;
+
+procedure TestCharManip();
+begin
+  MakeAssertion(GetLo(Combine(char(1), char(2))) = char(2), 'Char manip, get lo');
+  MakeAssertion(GetHi(Combine(char(1), char(2))) = char(1), 'Char manip, get hi');
+end;
+
+procedure TestCombinators();
+var
   p : array [0..11] of pParser;
-  test_mem : array[0..3] of char;
-  test_pcmd_mem : array[0..21] of char;
-  vm : ParseVm;
 begin
   p[0] := CharacterParser('c');
+  MakeAssertion(GetAllParsers() = p[0], 'get all parsers');
   p[1] := CharacterParser('c');
   p[2] := CharacterParser('d');
-  Assert(IsParserValid(p[0]), 'Char parser create', 18);
-  Assert(p[0] = p[1], 'Char parser intern', 18);
-  Assert(p[1] <> p[2], 'Char parser unique', 18);
+  MakeAssertion(IsParserValid(p[0]), 'Char parser create');
+  MakeAssertion(p[0] = p[1], 'Char parser intern');
+  MakeAssertion(p[1] <> p[2], 'Char parser unique');
 
   p[3] := SequenceParsers(p[0], p[2]);
   p[4] := SequenceParsers(p[0], p[2]);
   p[5] := SequenceParsers(p[0], p[1]);
-  Assert(p[3] = p[4], 'Sequence parser intern', 22);
-  Assert(p[4] <> p[5], 'Sequence parser unique', 22);
+  MakeAssertion(p[3] = p[4], 'Sequence parser intern');
+  MakeAssertion(p[4] <> p[5], 'Sequence parser unique');
 
   p[3] := AlternativeParsers(p[0], p[2]);
   p[4] := AlternativeParsers(p[0], p[2]);
   p[5] := AlternativeParsers(p[0], p[1]);
-  Assert(p[3] = p[4], 'Alternative parser intern', 25);
-  Assert(p[4] <> p[5], 'Alternative parser unique', 25);
+  MakeAssertion(p[3] = p[4], 'Alternative parser intern');
+  MakeAssertion(p[4] <> p[5], 'Alternative parser unique');
 
   // Kleene parser (regex: "c*"). many_c ::= 'c' | (many_c + 'c')
   p[6] := SequenceParsers(nil, p[0]);
   p[7] := AlternativeParsers(p[0], p[6]);
   p[8] := BackpatchLeft(p[6], p[7]);
-  Assert(not IsParserValid(p[6]), 'Parser backpatch remove', 23);
-  Assert(IsParserValid(p[8]), 'Parser backpatch insert', 23);
-  Assert(p[8]^.left = p[7], 'Parser backpatch, direct replace', 32);
-  Assert(p[7]^.right = p[8], 'Parser backpatch, indirect replace', 34);
+  MakeAssertion(not IsParserValid(p[6]), 'Parser backpatch remove');
+  MakeAssertion(IsParserValid(p[8]), 'Parser backpatch insert');
+  MakeAssertion(p[8]^.left = p[7], 'Parser backpatch, direct replace');
+  MakeAssertion(p[7]^.right = p[8], 'Parser backpatch, indirect replace');
 
   //Test right. many_c ::= ('c' + many_c) | 'c'
   p[9] := SequenceParsers(CharacterParser('c'), nil);
   p[10] := AlternativeParsers(p[9],  CharacterRangeParser('b', 'c'));
   p[11] := BackpatchRight(p[9], p[10]);
 
-  Assert(not IsParserValid(p[9]), 'Parser backpatch remove', 23);
-  Assert(IsParserValid(p[11]), 'Parser backpatch insert', 23);
-  Assert(p[11]^.right = p[10], 'Parser backpatch, direct replace', 32);
-  Assert(p[10]^.left = p[11], 'Parser backpatch, indirect replace', 34);
+  MakeAssertion(not IsParserValid(p[9]), 'Parser backpatch remove');
+  MakeAssertion(IsParserValid(p[11]), 'Parser backpatch insert');
+  MakeAssertion(p[11]^.right = p[10], 'Parser backpatch, direct replace');
+  MakeAssertion(p[10]^.left = p[11], 'Parser backpatch, indirect replace');
 
-  DiskFileOpen(@f, 'test.pcmd', FMODE_WRITE);
-  CompileParser(@f, p[10]);
-  FileClose(@f);
+  ParserMarkAllChildrenOf(p[10]);
+  MakeAssertion(p[9]^.mark = true, 'Parser mark, child 1');
+  MakeAssertion(p[11]^.mark = true, 'Parsermark, child 2');
+  MakeAssertion(p[10]^.mark = true, 'Parser mark, parent');
+  MakeAssertion(p[8]^.mark = false, 'Parser mark, non-child');
+end;
 
-  DiskFileOpen(@f, 'test.txt', FMODE_WRITE);
-  FileWrite(@f, 'c');
-  FileWrite(@f, 'd');
-  FileWrite(@f, 'c');
-
-  FileClose(@f);
-
-  DiskFileOpen(@f, 'test.pcmd', FMODE_READ);
-  DiskFileOpen(@f1, 'test.txt', FMODE_READ);
-  InitializeVm(@vm, @f, @f1);
-  Parse(@vm);
-
-  FileClose(@f);
-  FileClose(@f1);
-
-  Assert(vm.stateStack[vm.statePointer-1].success, 'vm parse 1 char', 15);
-  Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse 1 char, start', 22);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 1, 'vm parse 1 char, stop', 21);
-
-  DiskFileOpen(@f, 'test.txt', FMODE_WRITE);
-  FileWrite(@f, 'd');
-  FileWrite(@f, 'd');
-  FileWrite(@f, 'c');
-
-  FileClose(@f);
-
-  DiskFileOpen(@f, 'test.pcmd', FMODE_READ);
-  DiskFileOpen(@f1, 'test.txt', FMODE_READ);
-  InitializeVm(@vm, @f, @f1);
-  Parse(@vm);
-
-  FileClose(@f);
-  FileClose(@f1);
- 
-  Assert(not vm.stateStack[vm.statePointer-1].success, 'vm parse no char', 16);
-  Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse no char, start', 23);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 1, 'vm parse no char, stop', 22);
-
-  DiskFileOpen(@f, 'test.txt', FMODE_WRITE);
-  FileWrite(@f, 'c');
-  FileClose(@f);
-
-  DiskFileOpen(@f, 'test.pcmd', FMODE_READ);
-  DiskFileOpen(@f1, 'test.txt', FMODE_READ);
-  InitializeVm(@vm, @f, @f1);
-  Parse(@vm);
-
-  FileClose(@f);
-  FileClose(@f1);
- 
-  Assert(vm.stateStack[vm.statePointer-1].success, 'vm parse short', 14);
-  Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse short, start', 21);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 1, 'vm parse short, stop', 20);
-
-  DiskFileOpen(@f, 'test.txt', FMODE_WRITE);
-  FileWrite(@f, 'd');
-  FileClose(@f);
-
-  DiskFileOpen(@f, 'test.pcmd', FMODE_READ);
-  DiskFileOpen(@f1, 'test.txt', FMODE_READ);
-  InitializeVm(@vm, @f, @f1);
-  Parse(@vm);
-
-  FileClose(@f);
-  FileClose(@f1);
- 
-  Assert(not vm.stateStack[vm.statePointer-1].success, 'vm parse short', 14);
-  Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse short, start', 21);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 1, 'vm parse short, stop', 20);
-
-  DiskFileOpen(@f, 'test.txt', FMODE_WRITE);
-  FileWrite(@f, 'c');
-  FileWrite(@f, 'c');
-  FileWrite(@f, 'b');
-  FileClose(@f);
-
-  DiskFileOpen(@f, 'test.pcmd', FMODE_READ);
-  DiskFileOpen(@f1, 'test.txt', FMODE_READ);
-  InitializeVm(@vm, @f, @f1);
-  Parse(@vm);
-
-  FileClose(@f);
-  FileClose(@f1);
-
-  Assert(vm.stateStack[vm.statePointer-1].success, 'vm parse long', 13);
-  Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse long, start', 20);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 2, 'vm parse long, stop', 19);
-
-  { Same tests, but with memory-based files }
-  
-  MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_WRITE);
-  CompileParser(@f, p[10]);
-  FileClose(@f);
-
-  MemoryFileOpen(@f, test_mem, 4, FMODE_WRITE);
-  FileWrite(@f, 'c');
-  FileWrite(@f, 'c');
-  FileWrite(@f, 'c');
-  FileWrite(@f, 'd');
-  FileClose(@f);
-
-  MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_READ);
-  MemoryFileOpen(@f1, test_mem, 4, FMODE_READ);
-  InitializeVm(@vm, @f, @f1);
-  Parse(@vm);
-
-  Assert(vm.stateStack[vm.statePointer-1].success, 'vm parse long', 13);
-  Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse long, start', 20);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 3, 'vm parse long, stop', 19);
-  Assert(FileGetPosition(vm.inputFile) = 3, 'vm parse long pos', 17);
-  Assert(FileRead(vm.inputFile) = 'd', 'vm parse long pos', 17);
-
-  FileClose(@f);
-  FileClose(@f1);
-
-
-  MemoryFileOpen(@f, test_mem, 3, FMODE_WRITE);
-  FileWrite(@f, 'd');
-  FileWrite(@f, 'd');
-  FileWrite(@f, 'c');
-  FileClose(@f);
-
-  MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_READ);
-  MemoryFileOpen(@f1, test_mem, 3, FMODE_READ);
-  InitializeVm(@vm, @f, @f1);
-  Parse(@vm);
-
-  FileClose(@f);
-  FileClose(@f1);
- 
-  Assert(not vm.stateStack[vm.statePointer-1].success, 'vm parse no char', 16);
-  Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse no char, start', 23);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 1, 'vm parse no char, stop', 22);
-
-
-  MemoryFileOpen(@f, test_mem, 1, FMODE_WRITE);
-  FileWrite(@f, 'c');
-  FileClose(@f);
-
-  MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_READ);
-  MemoryFileOpen(@f1, test_mem, 1, FMODE_READ);
-  InitializeVm(@vm, @f, @f1);
-  Parse(@vm);
-
-  FileClose(@f);
-  FileClose(@f1);
- 
-  Assert(vm.stateStack[vm.statePointer-1].success, 'vm parse short', 14);
-  Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse short, start', 21);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 1, 'vm parse short, stop', 20);
-
-  MemoryFileOpen(@f, test_mem, 1, FMODE_WRITE);
-  FileWrite(@f, 'd');
-  FileClose(@f);
-
-  MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_READ);
-  MemoryFileOpen(@f1, test_mem, 1, FMODE_READ);
-  InitializeVm(@vm, @f, @f1);
-  Parse(@vm);
-
-  FileClose(@f);
-  FileClose(@f1);
- 
-  Assert(not vm.stateStack[vm.statePointer-1].success, 'vm parse short', 14);
-  Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse short, start', 21);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 1, 'vm parse short, stop', 20);
-
-  MemoryFileOpen(@f, test_mem, 3, FMODE_WRITE);
-  FileWrite(@f, 'c');
-  FileWrite(@f, 'c');
-  FileWrite(@f, 'b');
-  FileClose(@f);
-
-  MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_READ);
-  MemoryFileOpen(@f1, test_mem, 3, FMODE_READ);
-  InitializeVm(@vm, @f, @f1);
-  Parse(@vm);
-
-
-  FileClose(@f);
-  FileClose(@f1);
-
-  Assert(vm.stateStack[vm.statePointer-1].success, 'vm parse long', 13);
-  Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse long, start', 20);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 2, 'vm parse long, stop', 19);
-
-  MemoryFileOpen(@f, test_mem, 4, FMODE_WRITE);
-  FileWrite(@f, 'c');
-  FileWrite(@f, 'c');
-  FileWrite(@f, 'c');
-  FileWrite(@f, 'd');
-  FileClose(@f);
-
-  MemoryFileOpen(@f, test_pcmd_mem, sizeof(test_pcmd_mem), FMODE_READ);
-  MemoryFileOpen(@f1, test_mem, 4, FMODE_READ);
-  InitializeVm(@vm, @f, @f1);
-  Parse(@vm);
-
-
-  Assert(vm.stateStack[vm.statePointer-1].success, 'vm parse long', 13);
-  Assert(vm.stateStack[vm.statePointer-1].start = 0, 'vm parse long, start', 20);
-  Assert(vm.stateStack[vm.statePointer-1].stop = 3, 'vm parse long, stop', 19);
-  Assert(FileGetPosition(vm.inputFile) = 3, 'vm parse long pos', 17);
-  Assert(FileRead(vm.inputFile) = 'd', 'vm parse long pos', 17);
-
-  FileClose(@f);
-  FileClose(@f1);
+begin
+  TestAllocator();
+  TestBufferCursor();
+  TestCharManip();
 end.
