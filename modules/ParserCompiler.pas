@@ -21,22 +21,39 @@ begin
   end;
 end;
 
-function GetCompilePosition(p : pParser) : cardinal;
 var
-  loc : cardinal;
-  curParser : pParser;
+  curLoc : cardinal;
+procedure ParserMarkAllChildrenOf(p : pParser);
 begin
-  MakeAssertion(IsParserValid(p), 'Cannot compile invalid/deleted parser');
-  loc := 2;
-  curParser := GetAllParsers();
+  if p^.mark then
+    exit;
 
-  while curParser <> p do
+  p^.mark := true;
+  p^.location := curLoc;
+  curLoc := curLoc + GetCompileSize(p);
+
+  if (p^.kind = PARSER_ALTERNATIVE) or (p^.kind = PARSER_SEQUENCE) then  
     begin
-      if curParser^.mark then loc := loc + GetCompileSize(p);
-      curParser := curParser^.next;
+      ParserMarkAllChildrenOf(p^.left);
+      ParserMarkAllChildrenOf(p^.right);
+    end
+  else if (p^.kind = PARSER_RESULT) then
+    begin
+      ParserMarkAllChildrenOf(p^.child)
     end;
+end;
 
-  exit (loc);
+procedure ParserUnmarkAll();
+var
+  p : pParser;
+begin
+  p := GetAllParsers();
+
+  while p <> nil do
+    begin
+      p^.mark := false;
+      p := p^.next;
+    end;
 end;
 
 procedure DoCompile(cb : pCursorBuffer; p : pParser);
@@ -45,9 +62,7 @@ var
 begin
   if p^.mark = false then exit;
   p^.mark := false;
-
-  loc := GetCompilePosition(p);
-  CursorBufferSeek(cb, loc);
+  CursorBufferSeek(cb, p^.location);
 
   if p^.kind = PARSER_RANGE then
     begin
@@ -55,24 +70,24 @@ begin
     end
   else if p^.kind = PARSER_SEQUENCE then
     begin
-      left_loc := GetCompilePosition(p^.left);
-      right_loc := GetCompilePosition(p^.right);
+      left_loc := p^.left^.location;
+      right_loc := p^.right^.location;
       WriteParseOpSequence(cb, left_loc, right_loc);
       DoCompile(cb, p^.left);
       DoCompile(cb, p^.right);
     end
   else if p^.kind = PARSER_ALTERNATIVE then
     begin
-      left_loc := GetCompilePosition(p^.left);
-      right_loc := GetCompilePosition(p^.right);
+      left_loc := p^.left^.location;
+      right_loc := p^.right^.location;
       WriteParseOpAlt(cb, left_loc, right_loc);
       DoCompile(cb, p^.left);
       DoCompile(cb, p^.right);
     end
   else if p^.kind = PARSER_RESULT then
     begin
-      left_loc := GetCompilePosition(p^.child);
-      WriteParseOpResult(cb, left_loc);
+      loc := p^.child^.location;
+      WriteParseOpResult(cb, loc);
       DoCompile(cb, p^.child);
     end
   else
@@ -85,12 +100,15 @@ procedure CompileParser(cb : pCursorBuffer; p : pParser);
 var
   loc : cardinal;
 begin
+  { Global we need to set for determining parser bytecode addresses }
+  curLoc := 2; {TODO: Should we have a context record for this }
+
   MakeAssertion(IsParserValid(p), 'Cannot compile invalid/deleted parser');
 
   ParserUnmarkAll();
   ParserMarkAllChildrenOf(p); { for optimization, only compile children }
 
-  loc := GetCompilePosition(p);
+  loc := p^.location;
 
   CursorBufferSeek(cb, 0);
   CursorBufferWrite(cb, GetLo(loc));

@@ -192,16 +192,6 @@ begin
   MakeAssertion(p[11]^.right = p[10], 'Parser backpatch, direct replace');
   MakeAssertion(p[10]^.left = p[11], 'Parser backpatch, indirect replace');
 
-  ParserMarkAllChildrenOf(p[10]);
-  MakeAssertion(p[10]^.mark = true, 'Parser mark, parent');
-  MakeAssertion(p[11]^.mark = true, 'Parser mark, child');
-  MakeAssertion(p[8]^.mark = false, 'Parser mark, non-child');
-
-  ParserUnmarkAll();
-  MakeAssertion(p[10]^.mark = false, 'Parser unmark, parent');
-  MakeAssertion(p[11]^.mark = false, 'Parser unmark, child');
-  MakeAssertion(p[8]^.mark = false, 'Parser unmark, non-child');
-
   ResetParserInternPool();
 end;
 
@@ -262,8 +252,8 @@ begin
 
   DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
   DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
-
   InitParserInterpreter(@pi, @inp, @cmd);
+
   MakeAssertion(Parse(@pi), 'Character parser, inner character');
   MakeAssertion(Parse(@pi), 'Character parser, back edge');
   MakeAssertion(Parse(@pi), 'Character parser, front edge');
@@ -281,8 +271,41 @@ begin
 end;
 
 procedure TestSequenceParser();
+var
+  seq_parser : pParser;
+  inp, cmd : rCursorBuffer;
+  pi : rParserInterpreter;
 begin
+  seq_parser := SequenceParsers(CharacterParser('1'),
+    CharacterRangeParser('0', '9'));
 
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  CompileParser(@cmd, seq_parser);
+  CursorBufferClose(@cmd);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, '1'); { Match }
+  CursorBufferWrite(@inp, '9');
+  CursorBufferWrite(@inp, '1'); { Non-match back }
+  CursorBufferWrite(@inp, 'a');
+  CursorBufferWrite(@inp, 'b'); { Non-match front }
+  CursorBufferWrite(@inp, '1'); { character near eof }
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+  InitParserInterpreter(@pi, @inp, @cmd);
+
+  MakeAssertion(Parse(@pi), 'Sequence, match');
+  MakeAssertion(CursorBufferPosition(@inp) = 2, 'Sequence, match consumption');
+  MakeAssertion(not Parse(@pi), 'Sequence, non-match back');
+  MakeAssertion(CursorBufferPosition(@inp) = 4, 'Sequence, non-match consume');
+  MakeAssertion(not Parse(@pi), 'Sequence, non-match front');
+  MakeAssertion(CursorBufferPosition(@inp) = 5, 'Sequence, non-match consume');
+  MakeAssertion(not Parse(@pi), 'Sequence, non-match near eof');
+  MakeAssertion(CursorBufferPosition(@inp) = 6, 'Sequence, non-match eof consume');
+  MakeAssertion(CursorBufferEnd(@inp), 'Sequence, eof');
+  MakeAssertion(not Parse(@pi), 'Sequence, parse after eof');
 end;
 
 begin

@@ -24,9 +24,10 @@ begin
   p^.cmd := parserCode;
 end;
 
-function SingleStep(p : pParserInterpreter) : boolean;
+function ParserEx(p : pParserInterpreter) : boolean;
 var
-  lo, hi, inp : char;
+  lo, hi, lo_left, hi_left, lo_right, hi_right, inp : char;
+  res : boolean;
   cmd : ParserOpcode;
 begin
   cmd := ParserOpcode(CursorBufferRead(p^.cmd));
@@ -40,6 +41,21 @@ begin
       inp := CursorBufferRead(p^.inp);
       exit ((cardinal(lo) <= cardinal(inp)) and (cardinal(hi) >= cardinal(inp)));
     end
+  else if cmd = PARSE_OP_SEQ then
+    begin
+      hi_left := CursorBufferRead(p^.cmd);
+      lo_left := CursorBufferRead(p^.cmd);
+      hi_right := CursorBufferRead(p^.cmd);
+      lo_right := CursorBufferRead(p^.cmd);
+
+      CursorBufferSeek(p^.cmd, Combine(hi_left, lo_left));
+      res := ParserEx(p);
+      
+      CursorBufferSeek(p^.cmd, Combine(hi_right, lo_right));
+      if res then res := ParserEx(p);
+      
+      exit (res);
+    end
   else
     MakeAssertion(false, 'Interpreter, unimplemented instruction');
 end;
@@ -52,7 +68,7 @@ begin
   lo := CursorBufferRead(p^.cmd);
   hi := CursorBufferRead(p^.cmd);
   CursorBufferSeek(p^.cmd, Combine(hi, lo));
-  exit (SingleStep(p));
+  exit (ParserEx(p));
 end;
 
 end.

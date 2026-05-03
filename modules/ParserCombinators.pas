@@ -11,7 +11,10 @@ type
 
   rParser = record
     next : ^rParser;
+
+    { For compilation purposes }
     mark : boolean;
+    location : cardinal;
 
     case kind : ParserKind of
       PARSER_RANGE : (min_char, max_char : char);
@@ -29,11 +32,11 @@ function ResultGeneratingParser(child : pParser) : pParser;
 function BackpatchLeft(parent, child: pParser) : pParser;
 function BackpatchRight(parent, child: pParser) : pParser;
 function GetAllParsers() : pParser;
-procedure ParserUnmarkAll();
-procedure ParserMarkAllChildrenOf(p : pParser);
 procedure ResetParserInternPool();
 
-implementation uses Assertion, Memory;
+implementation 
+
+uses Assertion, Memory;
 
 var
   parserInternPool : pParser;
@@ -236,37 +239,6 @@ begin
   _replaceParser(parent, new_interned_parser);
 
   exit(new_interned_parser);
-end;
-
-procedure ParserMarkAllChildrenOf(p : pParser);
-begin
-  if p^.mark then
-    exit;
-
-  p^.mark := true;
-
-  if (p^.kind = PARSER_ALTERNATIVE) or (p^.kind = PARSER_SEQUENCE) then  
-    begin
-      ParserMarkAllChildrenOf(p^.left);
-      ParserMarkAllChildrenOf(p^.right);
-    end
-  else if (p^.kind = PARSER_RESULT) then
-    begin
-      ParserMarkAllChildrenOf(p^.child)
-    end;
-end;
-
-procedure ParserUnmarkAll();
-var
-  p : pParser;
-begin
-  p := parserInternPool;
-
-  while p <> nil do
-    begin
-      p^.mark := false;
-      p := p^.next;
-    end;
 end;
 
 end.
