@@ -4,7 +4,19 @@ test: all
 	fpc -g ./Test.pas -Fu./bin -FE./bin
 	./bin/Test
 
-all: str32 assertion memory cursor_buffer char_manip combinator bytecode compiler
+all: \
+	str32 \
+	assertion \
+	memory \
+	cursor_buffer \
+	char_manip \
+	combinator \
+	bytecode \
+	compiler \
+	interpreter
+
+interpreter:
+	fpc -g ./modules/ParserInterpreter.pas -Fu./bin -FE./bin
 
 compiler:
 	fpc -g ./modules/ParserCompiler.pas -Fu./bin -FE./bin

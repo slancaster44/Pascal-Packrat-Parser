@@ -93,8 +93,8 @@ begin
   loc := GetCompilePosition(p);
 
   CursorBufferSeek(cb, 0);
-  CursorBufferWrite(cb, GetHi(loc));
   CursorBufferWrite(cb, GetLo(loc));
+  CursorBufferWrite(cb, GetHi(loc));
 
   DoCompile(cb, p);
 end;

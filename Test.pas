@@ -1,7 +1,7 @@
 program UnitTest;
 
 uses Memory, Assertion, CursorBuffer, CharManipulation, 
-  ParserCombinators, ParserBytecode, ParserCompiler;
+  ParserCombinators, ParserBytecode, ParserCompiler, ParserInterpreter;
 
 procedure TestAllocator();
 var
@@ -239,24 +239,50 @@ begin
   CursorBufferClose(@cb);
 end;
 
-procedure TestCompleteParser();
+procedure TestRangeParser();
 var
-  digit_parser, digit_seq_parser, number_parser : pParser;
-  cb : rCursorBuffer;
+  digit_parser : pParser;
+  inp, cmd : rCursorBuffer;
+  pi : rParserInterpreter;
+  pos0, pos1 : cardinal;
 begin
   digit_parser := CharacterRangeParser('0', '9');
-  digit_seq_parser := SequenceParsers(digit_parser, nil);
-  number_parser := AlternativeParsers(digit_seq_parser, digit_parser);
-  digit_seq_parser := BackpatchRight(digit_seq_parser, number_parser);
-  number_parser := ResultGeneratingParser(number_parser);
 
-  DiskCursorBuffer(@cb, 'test.pcmd', BUFFER_MODE_WRITE);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  CompileParser(@cmd, digit_parser);
+  CursorBufferClose(@cmd);
 
-  { First, only digit parser }
-  CompileParser(@cb, digit_parser);
-  CursorBufferClose(@cb);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, '1'); { Inner character }
+  CursorBufferWrite(@inp, '9'); { back edge character }
+  CursorBufferWrite(@inp, '0'); { front edge character }
+  CursorBufferWrite(@inp, 'a'); { non-matching }
+  CursorBufferWrite(@inp, '1'); { character near eof }
+  CursorBufferClose(@inp);
 
-  
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @cmd);
+  MakeAssertion(Parse(@pi), 'Character parser, inner character');
+  MakeAssertion(Parse(@pi), 'Character parser, back edge');
+  MakeAssertion(Parse(@pi), 'Character parser, front edge');
+  MakeAssertion(not Parse(@pi), 'Character parser, non-matching');
+  MakeAssertion(Parse(@pi), 'Character parser, near eof');
+
+  pos0 := CursorBufferPosition(@inp);
+  MakeAssertion(pos0 = CursorBufferLength(@inp), 'Character parser, eof position');
+  MakeAssertion(not Parse(@pi), 'Character parser, eof');
+  pos1 := CursorBufferPosition(@inp);
+  MakeAssertion(pos0 = pos1, 'Character parser, no eof moving');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
+end;
+
+procedure TestSequenceParser();
+begin
+
 end;
 
 begin
@@ -265,5 +291,6 @@ begin
   TestCharManip();
   TestWriteBytecodes();
   TestCombinators();
-  TestCompleteParser();
+  TestRangeParser();
+  TestSequenceParser();
 end.
