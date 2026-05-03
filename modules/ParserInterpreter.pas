@@ -27,6 +27,7 @@ end;
 function ParserEx(p : pParserInterpreter) : boolean;
 var
   lo, hi, lo_left, hi_left, lo_right, hi_right, inp : char;
+  old_inp_pos : cardinal;
   res : boolean;
   cmd : ParserOpcode;
 begin
@@ -53,7 +54,27 @@ begin
       
       CursorBufferSeek(p^.cmd, Combine(hi_right, lo_right));
       if res then res := ParserEx(p);
+
+      exit (res);
+    end
+  else if cmd = PARSE_OP_ALT then
+    begin
+      hi_left := CursorBufferRead(p^.cmd);
+      lo_left := CursorBufferRead(p^.cmd);
+      hi_right := CursorBufferRead(p^.cmd);
+      lo_right := CursorBufferRead(p^.cmd);
+
+      CursorBufferSeek(p^.cmd, Combine(hi_left, lo_left));
+      old_inp_pos := CursorBufferPosition(p^.inp);
+      res := ParserEx(p);
       
+      CursorBufferSeek(p^.cmd, Combine(hi_right, lo_right));
+      if not res then 
+        begin
+          CursorBufferSeek(p^.inp, old_inp_pos);
+          res := ParserEx(p);
+        end;
+
       exit (res);
     end
   else

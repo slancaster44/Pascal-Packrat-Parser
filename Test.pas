@@ -306,6 +306,41 @@ begin
   MakeAssertion(CursorBufferPosition(@inp) = 6, 'Sequence, non-match eof consume');
   MakeAssertion(CursorBufferEnd(@inp), 'Sequence, eof');
   MakeAssertion(not Parse(@pi), 'Sequence, parse after eof');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
+end;
+
+procedure TestAlternativeParsers();
+var
+  alt_parser : pParser;
+  inp, cmd : rCursorBuffer;
+  pi : rParserInterpreter;
+begin
+  alt_parser := AlternativeParsers(CharacterParser('1'),
+    CharacterRangeParser('3', '9'));
+
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  CompileParser(@cmd, alt_parser);
+  CursorBufferClose(@cmd);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, '1'); { Match left }
+  CursorBufferWrite(@inp, '4'); { Match right }
+  CursorBufferWrite(@inp, '2'); { Non match }
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+  InitParserInterpreter(@pi, @inp, @cmd);
+
+  MakeAssertion(Parse(@pi), 'Alternative, match left');
+  MakeAssertion(Parse(@pi), 'Alternative, match right');
+  MakeAssertion(not Parse(@pi), 'Alternative, non match');
+  MakeAssertion(not Parse(@pi), 'Alternative, eof');
+  
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
 end;
 
 begin
@@ -316,4 +351,5 @@ begin
   TestCombinators();
   TestRangeParser();
   TestSequenceParser();
+  TestAlternativeParsers();
 end.
