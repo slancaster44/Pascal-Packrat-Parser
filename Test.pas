@@ -343,6 +343,103 @@ begin
   CursorBufferClose(@cmd);
 end;
 
+procedure TestNonResultParsers();
+var
+  digit_parser, number_parser : pParser;
+  inp, cmd : rCursorBuffer;
+  pi : rParserInterpreter;
+begin 
+  // number := ('0' - '9') | (('0' - '9') + number)
+  digit_parser := SequenceParsers(CharacterRangeParser('0', '9'), nil);
+  number_parser := AlternativeParsers(digit_parser, CharacterRangeParser('0', '9'));
+  digit_parser := BackpatchRight(digit_parser, number_parser);
+
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  CompileParser(@cmd, number_parser);
+  CursorBufferClose(@cmd);
+
+  { Test, good match }
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, '1');
+  CursorBufferWrite(@inp, '4');
+  CursorBufferWrite(@inp, '2'); 
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+  InitParserInterpreter(@pi, @inp, @cmd);
+  
+  MakeAssertion(Parse(@pi), 'Nonresult, match');
+  MakeAssertion(CursorBufferPosition(@inp) = 3, 'Nonresult match, location');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
+
+  { Test, good match, short }
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, '1');
+  CursorBufferWrite(@inp, '4');
+  CursorBufferWrite(@inp, 'a'); 
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+  InitParserInterpreter(@pi, @inp, @cmd);
+
+  MakeAssertion(Parse(@pi), 'Nonresult, short match');
+  MakeAssertion(CursorBufferPosition(@inp) = 2, 'Nonresult short match, location');
+  
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
+
+  { Test, good match, near eof }
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, '1');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+  InitParserInterpreter(@pi, @inp, @cmd);
+
+  MakeAssertion(Parse(@pi), 'result, short match near eof');
+  MakeAssertion(CursorBufferPosition(@inp) = CursorBufferLength(@inp), 
+    'result short match, location');
+  
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
+
+  { Test, non match, non near eof }
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, 'a');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+  InitParserInterpreter(@pi, @inp, @cmd);
+
+  MakeAssertion(not Parse(@pi), 'Nonresult, short match near eof');
+  MakeAssertion(CursorBufferPosition(@inp) = CursorBufferLength(@inp), 
+    'Nonresult short match, location');
+  
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
+
+  { Test, non match, eof }
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+  InitParserInterpreter(@pi, @inp, @cmd);
+
+  MakeAssertion(not Parse(@pi), 'Nonresult, short match on eof');
+  
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
+end;
+
+{ TODO: same tests with memory backed files }
+
 begin
   TestAllocator();
   TestBufferCursor();
@@ -352,4 +449,5 @@ begin
   TestRangeParser();
   TestSequenceParser();
   TestAlternativeParsers();
+  TestNonResultParsers();
 end.
