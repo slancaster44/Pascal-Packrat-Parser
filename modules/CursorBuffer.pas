@@ -26,7 +26,9 @@ function CursorBufferLength(cb : pCursorBuffer) : cardinal;
 function CursorBufferEnd(cb : pCursorBuffer) : boolean;
 procedure CursorBufferClose(cb : pCursorBuffer);
 
-implementation uses Assertion;
+
+implementation
+uses Assertion;
 
 procedure DiskCursorBuffer(cb : pCursorBuffer; fname : acRawStr; bm : BufferMode);
 begin
