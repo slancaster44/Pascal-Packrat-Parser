@@ -453,6 +453,7 @@ end;
 procedure TestResultParser();
 var
   digit_parser, number_parser, op_parser, expr_parser, final_parser : pParser;
+  tmp_parser : pParser;
   inp, cmd : rCursorBuffer;
   pi : rParserInterpreter;
   res : pParseResult;
@@ -465,10 +466,10 @@ begin
   op_parser := AlternativeParsers(CharacterParser('+'), CharacterParser('-'));
   op_parser := ResultGeneratingParser(op_parser);
   expr_parser := SequenceParsers(SequenceParsers(number_parser, op_parser), nil);
-  op_parser := AlternativeParsers(expr_parser, number_parser);
-  expr_parser := BackpatchRight(expr_parser, op_parser);
+  tmp_parser := AlternativeParsers(expr_parser, number_parser);
 
-  final_parser := ResultGeneratingParser(op_parser);
+  final_parser := ResultGeneratingParser(tmp_parser);
+  expr_parser := BackpatchRight(expr_parser, final_parser);
 
   DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_WRITE);
   CompileParser(@cmd, final_parser);
@@ -507,17 +508,17 @@ begin
   
   MakeAssertion(Parse(@pi, @res), 'Single number, true/false');
   MakeAssertion(res <> nil, 'Single number, result not null');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 'Single number, id');
   MakeAssertion(res^.start = 0, 'Single number, start');
   MakeAssertion(res^.stop = 2, 'Single number, stop');
   MakeAssertion(res^.sibling = nil, 'Single number, result sibling');
   MakeAssertion(res^.child <> nil, 'Single number, result child');
   MakeAssertion(res^.child^.child = nil, 'Single number, result 2nd child');
-  MakeAssertion(res^.identifier <> res^.child^.identifier, 
-    'Single number, res and child ident');
+  MakeAssertion(res^.child^.identifier = number_parser^.identifier, 
+    'Single number, child ident');
   MakeAssertion(res^.child^.start = 0, 'Single number, child start');
   MakeAssertion(res^.child^.stop = 2, 'Single number, child stop');
   MakeAssertion(res^.child^.sibling = nil, 'Single number, sibling');
-
 
   CursorBufferRead(@inp); { Read over space in input }
   res := nil;
@@ -535,18 +536,73 @@ begin
 
   MakeAssertion(Parse(@pi, @res), 'Simple expr, output');
   MakeAssertion(res <> nil, 'Simple expr, result not nil');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 
+    'Simple expr, identifier');
   MakeAssertion(res^.start = 5, 'Simple expr, start');
   MakeAssertion(res^.stop = 8, 'Simple expr, stop');
   MakeAssertion(res^.sibling = nil, 'Simple expr, sibling');
   MakeAssertion(res^.child <> nil, 'Simple expr, child');
+  MakeAssertion(res^.child^.identifier = number_parser^.identifier, 
+    'Simple expr, child identifier');
   MakeAssertion(res^.child^.child = nil, 'Simple expr, 2nd child');
-  MakeAssertion(res^.child^.identifier <> res^.identifier, 'Res child ident');
-  MakeAssertion(res^.child^.start = 5, 'Res child start');
-  MakeAssertion(res^.child^.stop = 6, 'Res child stop');
+  MakeAssertion(res^.child^.start = 5, 'Simple expr, child start');
+  MakeAssertion(res^.child^.stop = 6, 'Simple expr, child stop');
+  MakeAssertion(res^.child^.sibling <> nil, 'Simple expr, child sibling');
+  MakeAssertion(res^.child^.sibling^.identifier = op_parser^.identifier,
+    'Simple expr, child sibling identifier');
+  MakeAssertion(res^.child^.sibling^.start = 6, 
+    'Simple expr, child sibling start');
+  MakeAssertion(res^.child^.sibling^.stop = 7,
+    'Simple expr, child sibling stop');
+  MakeAssertion(res^.child^.sibling^.sibling <> nil, 
+    'Simple expr, 2nd sibling');
+  MakeAssertion(
+    res^.child^.sibling^.sibling^.identifier = final_parser^.identifier,
+    'Simple expr, 2nd sibling identifier');
+  MakeAssertion(res^.child^.sibling^.sibling^.start = 7,
+    'Simple expr, 2nd sibling start');
+  MakeAssertion(res^.child^.sibling^.sibling^.stop = 8,
+    'Simple expr, 2nd sibling stop');
+  MakeAssertion(
+    res^.child^.sibling^.sibling^.child^.identifier = number_parser^.identifier,
+    'Simple expr, 2nd child identifier');
+  MakeAssertion(res^.child^.sibling^.sibling^.start = 7,
+    'Simple expr, 2nd child start');
+  MakeAssertion(res^.child^.sibling^.sibling^.stop = 8,
+    'Simple expr, 2nd child stop');
 
-  MakeAssertion(res^.child^.sibling <> nil, 'Res, child sibling');
-  MakeAssertion(res^.child^.sibling^.sibling <> nil, 'Res, 2nd child sibling');
+  CursorBufferRead(@inp); { Read over space in input }
+  res := nil;
 
+  MakeAssertion(Parse(@pi, @res), 'Simple expr, output');
+  MakeAssertion(res^.start = 9, 'Simple expr short, start');
+  MakeAssertion(res^.stop = 10, 'Simple expr short, stop');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 
+    'Simple expr short, ident');
+  MakeAssertion(res^.child <> nil, 'Simple expr short, child');
+  MakeAssertion(res^.child^.start = 9, 'Simple expr short, child start');
+  MakeAssertion(res^.child^.stop = 10, 'Simple expr short, child stop');
+  MakeAssertion(res^.child^.identifier = number_parser^.identifier,
+    'Simple expr short, child ident');
+
+  CursorBufferRead(@inp); 
+  CursorBufferRead(@inp); 
+  CursorBufferRead(@inp); 
+  res := nil;
+
+  MakeAssertion(Parse(@pi, @res), 'Complex expr, output');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 'Complex expr, id');
+  MakeAssertion(res^.start = 13, 'Complex expr, start');
+  MakeAssertion(res^.stop = 18, 'Complex expr, stop');
+
+  CursorBufferRead(@inp); 
+  res := nil;
+
+  MakeAssertion(Parse(@pi, @res), 'Complex expr short, output');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 
+    'Complex expr short, id');
+  MakeAssertion(res^.start = 19, 'Complex expr short, start');
+  MakeAssertion(res^.stop = 22, 'Complex expr short, stop');
 end;
 
 { TODO: same tests with memory backed files }

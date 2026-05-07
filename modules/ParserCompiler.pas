@@ -29,7 +29,7 @@ begin
     exit;
 
   p^.mark := true;
-  p^.location := curLoc;
+  p^.identifier := curLoc;
   curLoc := curLoc + GetCompileSize(p);
 
   if (p^.kind = PARSER_ALTERNATIVE) or (p^.kind = PARSER_SEQUENCE) then  
@@ -62,7 +62,7 @@ var
 begin
   if p^.mark = false then exit;
   p^.mark := false;
-  CursorBufferSeek(cb, p^.location);
+  CursorBufferSeek(cb, p^.identifier);
 
   if p^.kind = PARSER_RANGE then
     begin
@@ -70,23 +70,23 @@ begin
     end
   else if p^.kind = PARSER_SEQUENCE then
     begin
-      left_loc := p^.left^.location;
-      right_loc := p^.right^.location;
+      left_loc := p^.left^.identifier;
+      right_loc := p^.right^.identifier;
       WriteParseOpSequence(cb, left_loc, right_loc);
       DoCompile(cb, p^.left);
       DoCompile(cb, p^.right);
     end
   else if p^.kind = PARSER_ALTERNATIVE then
     begin
-      left_loc := p^.left^.location;
-      right_loc := p^.right^.location;
+      left_loc := p^.left^.identifier;
+      right_loc := p^.right^.identifier;
       WriteParseOpAlt(cb, left_loc, right_loc);
       DoCompile(cb, p^.left);
       DoCompile(cb, p^.right);
     end
   else if p^.kind = PARSER_RESULT then
     begin
-      loc := p^.child^.location;
+      loc := p^.child^.identifier;
       WriteParseOpResult(cb, loc);
       DoCompile(cb, p^.child);
     end
@@ -108,7 +108,7 @@ begin
   ParserUnmarkAll();
   ParserMarkAllChildrenOf(p); { for optimization, only compile children }
 
-  loc := p^.location;
+  loc := p^.identifier;
 
   CursorBufferSeek(cb, 0);
   CursorBufferWrite(cb, GetLo(loc));

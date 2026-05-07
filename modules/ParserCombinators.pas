@@ -14,7 +14,7 @@ type
 
     { For compilation purposes }
     mark : boolean;
-    location : cardinal;
+    identifier : cardinal;
 
     case kind : ParserKind of
       PARSER_RANGE : (min_char, max_char : char);
@@ -101,6 +101,7 @@ begin
   curParser^ := new_parser;
   curParser^.next := parserInternPool;
   curParser^.mark := false;
+  curParser^.identifier := 0;
   parserInternPool := curParser;
   exit (curParser);
 end;

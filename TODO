@@ -2,3 +2,4 @@
 - Memoization
 - Benchmark (0.01?)
 - Compression by explicit match parser?
+- User controled arena?

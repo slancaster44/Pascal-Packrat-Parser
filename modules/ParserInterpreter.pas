@@ -99,7 +99,7 @@ begin
     end
   else if cmd = PARSE_OP_RES then
     begin
-      identifier := CursorBufferPosition(p^.cmd);
+      identifier := CursorBufferPosition(p^.cmd)-1; { -1, to account for cmd read }
       hi := CursorBufferRead(p^.cmd);
       lo := CursorBufferRead(p^.cmd);
       CursorBufferSeek(p^.cmd, Combine(hi, lo));
