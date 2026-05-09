@@ -4,6 +4,14 @@ test: all
 	fpc -O- -g ./Test.pas -Fu./bin -FE./bin
 	./bin/Test
 
+bench: all
+	fpc -O- -g ./Benchmark.pas -Fu./bin -FE./bin
+	@start=$$(date +%s%N); \
+	./bin/Benchmark; \
+	end=$$(date +%s%N); \
+	runtime=$$(echo "scale=9; ($$end - $$start) / 1000000000" | bc -l); \
+	echo "Execution Time: $$runtime seconds"
+
 all: \
 	str32 \
 	assertion \

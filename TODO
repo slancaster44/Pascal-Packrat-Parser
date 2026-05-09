@@ -1,5 +1,6 @@
 - Convert assertion to "error" module
-- Memoization
-- Benchmark (0.01?)
+- Proper parallel compilation
 - Compression by explicit match parser?
 - User controled arena?
+- Test memory backed files
+- Varible resize of memory backed file?
