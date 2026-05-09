@@ -12,8 +12,18 @@ type
   pParseResult = ^rParseResult;
   ppParseResult = ^pParseResult;
 
+  rParseMemo = record
+    next : ^rParseMemo;
+    inpLoc, cmdLoc : cardinal;
+    inpConsumedLocation : cardinal;
+    output : boolean;
+    resOut : pParseResult;
+  end;
+  pParseMemo = ^rParseMemo;
+
   rParserInterpreter = record
     parseArena : rAllocator;
+    memos : pParseMemo;
     inp, cmd : pCursorBuffer;
   end;
   pParserInterpreter = ^rParserInterpreter;
@@ -31,7 +41,47 @@ procedure InitParserInterpreter
 begin
   p^.inp := inputText;
   p^.cmd := parserCode;
+  p^.memos := nil;
   InitAllocator(@(p^.parseArena));
+end;
+
+function LookupMemo(p : pParserInterpreter) : pParseMemo;
+var
+  inpLoc, cmdLoc : cardinal;
+  curMemo : pParseMemo;
+begin
+  inpLoc := CursorBufferPosition(p^.inp);
+  cmdLoc := CursorBufferPosition(p^.cmd);
+  curMemo := p^.memos;
+  while (curMemo <> nil) do
+    begin
+      if
+        (curMemo^.inpLoc = inpLoc) and
+        (curMemo^.cmdLoc = cmdLoc)
+      then exit (curMemo);
+      curMemo := curMemo^.next;
+    end;
+  exit (nil);
+end;
+
+function NewMemo(p : pParserInterpreter) : pParseMemo;
+var
+  memo : pParseMemo;
+begin
+  memo := pParseMemo(AllocatorAllocate(@(p^.parseArena), sizeof(rParseMemo)));
+  memo^.inpLoc := CursorBufferPosition(p^.inp);
+  memo^.cmdLoc := CursorBufferPosition(p^.cmd);
+  exit (memo);
+end;
+
+procedure FinalizeMemo
+  (p : pParserInterpreter; m : pParseMemo; res : boolean; pres : pParseResult);
+begin
+  m^.inpConsumedLocation := CursorBufferPosition(p^.inp);
+  m^.output := res;
+  m^.resOut := pres;
+  m^.next := p^.memos;
+  p^.memos := m;
 end;
 
 function ParserEx(p : pParserInterpreter; parseRes : ppParseResult) : boolean;
@@ -41,7 +91,17 @@ var
   res : boolean;
   cmd : ParserOpcode;
   childRes, siblingRes, tmpRes : pParseResult;
+  memo : pParseMemo;
 begin
+  memo := LookupMemo(p);
+  if (memo <> nil) then
+    begin
+      parseRes^ := memo^.resOut;
+      CursorBufferSeek(p^.inp, memo^.inpConsumedLocation);
+      exit (memo^.output);
+    end;
+  memo := NewMemo(p);
+
   cmd := ParserOpcode(CursorBufferRead(p^.cmd));
   childRes := nil;
   siblingRes := nil;
@@ -128,6 +188,7 @@ begin
     end;
   
   if not res then CursorBufferSeek(p^.inp, old_inp_pos);
+  FinalizeMemo(p, memo, res, parseRes^);
   exit (res);
 end;
 
@@ -140,6 +201,7 @@ begin
 
   DestroyAllocator(@(p^.parseArena));
   InitAllocator(@(p^.parseArena));
+  p^.memos := nil;
 
   CursorBufferSeek(p^.cmd, 0);
   lo := CursorBufferRead(p^.cmd);
