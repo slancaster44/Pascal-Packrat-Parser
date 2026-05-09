@@ -1,6 +1,4 @@
-- Convert assertion to "error" module
 - Proper parallel compilation
 - Compression by explicit match parser?
-- User controled arena?
 - Test memory backed files
-- Varible resize of memory backed file?
+- Print parse tree

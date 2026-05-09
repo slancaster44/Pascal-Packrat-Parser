@@ -595,6 +595,8 @@ begin
   MakeAssertion(res^.start = 13, 'Complex expr, start');
   MakeAssertion(res^.stop = 18, 'Complex expr, stop');
 
+  PrintParseResult(res, 0);
+
   CursorBufferRead(@inp); 
   res := nil;
 
@@ -603,6 +605,9 @@ begin
     'Complex expr short, id');
   MakeAssertion(res^.start = 19, 'Complex expr short, start');
   MakeAssertion(res^.stop = 22, 'Complex expr short, stop');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
 end;
 
 { TODO: same tests with memory backed files }

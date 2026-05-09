@@ -31,6 +31,7 @@ type
 procedure InitParserInterpreter
   (p : pParserInterpreter; inputText, parserCode : pCursorBuffer);
 function Parse(p : pParserInterpreter; res : ppParseResult) : boolean;
+procedure PrintParseResult(res : pParseResult; tabCount : cardinal);
 
 implementation
 
@@ -208,6 +209,30 @@ begin
   hi := CursorBufferRead(p^.cmd);
   CursorBufferSeek(p^.cmd, Combine(hi, lo));
   exit (ParserEx(p, res));
+end;
+
+procedure PrintParseResult(res : pParseResult; tabCount : cardinal);
+var
+  i : cardinal;
+begin
+  if res = nil then exit;
+  for i := 1 to tabCount do 
+    begin
+      write('|');
+      write(char(9));
+    end;
+
+  write('|- ');
+  write(res^.identifier);
+  write(' (');
+  write(res^.start);
+  write(',');
+  write(res^.stop);
+  write(')');
+  writeln();
+
+  PrintParseResult(res^.child, tabCount+1);
+  PrintParseResult(res^.sibling, tabCount);
 end;
 
 end.
