@@ -112,13 +112,20 @@ begin
   res := false;
   old_inp_pos := CursorBufferPosition(p^.inp);
 
-  if cmd = PARSE_OP_RANGE then
+  if cmd = PARSE_OP_MATCH then
+    begin
+      lo := CursorBufferRead(p^.cmd);
+      if not CursorBufferEnd(p^.inp) then
+        begin
+          inp := CursorBufferRead(p^.inp);
+          res := inp = lo;
+        end;
+    end
+  else if cmd = PARSE_OP_RANGE then
     begin
       lo := CursorBufferRead(p^.cmd);
       hi := CursorBufferRead(p^.cmd);
-      if CursorBufferEnd(p^.inp) then 
-        res := (false)
-      else
+      if not CursorBufferEnd(p^.inp) then 
         begin
           inp := CursorBufferRead(p^.inp);
           res := ((cardinal(lo) <= cardinal(inp)) and 

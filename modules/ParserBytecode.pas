@@ -5,6 +5,7 @@ uses CursorBuffer;
 
 type
   ParserOpcode = (
+    PARSE_OP_MATCH, { format: <opcode> <char> }
     PARSE_OP_RANGE, { format: <opcode> <least char> <most char> }
     PARSE_OP_SEQ, {format: <opcode> <left_hi> <left_lo> <right_hi> <right_lo> }
     PARSE_OP_ALT, {format: <opcode> <left_hi> <left_lo> <right_hi> <right_lo> }
@@ -13,6 +14,7 @@ type
   );
 
 function ParserInstructionLength(op : ParserOpcode) : cardinal;
+procedure WriteParseOpMatch(cb : pCursorBuffer; c : char);
 procedure WriteParseOpRange(cb : pCursorBuffer; min, max : char);
 procedure WriteParseOpSequence(cb : pCursorBuffer; left, right : cardinal);
 procedure WriteParseOpAlt(cb : pCursorBuffer; left, right : cardinal);
@@ -26,6 +28,7 @@ uses Assertion, CharManipulation;
 function ParserInstructionLength(op : ParserOpcode) : cardinal;
 begin
   case (op) of
+    PARSE_OP_MATCH: exit (2);
     PARSE_OP_RANGE: exit(3);
     PARSE_OP_SEQ: exit(5);
     PARSE_OP_ALT: exit(5);
@@ -34,6 +37,12 @@ begin
   else
     MakeAssertion(false, 'Unknown instruction, unknown length');
   end;
+end;
+
+procedure WriteParseOpMatch(cb : pCursorBuffer; c : char);
+begin
+  CursorBufferWrite(cb, char(PARSE_OP_MATCH));
+  CursorBufferWrite(cb, c);
 end;
 
 procedure WriteParseOpRange(cb : pCursorBuffer; min, max : char);

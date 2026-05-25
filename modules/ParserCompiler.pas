@@ -12,6 +12,7 @@ uses ParserBytecode, Assertion, CharManipulation;
 function GetCompileSize(p : pParser) : cardinal;
 begin
   case (p^.kind) of
+    PARSER_MATCH: exit (ParserInstructionLength(PARSE_OP_MATCH));
     PARSER_RANGE: exit (ParserInstructionLength(PARSE_OP_RANGE));
     PARSER_SEQUENCE: exit (ParserInstructionLength(PARSE_OP_SEQ));
     PARSER_ALTERNATIVE: exit (ParserInstructionLength(PARSE_OP_ALT));
@@ -41,7 +42,9 @@ begin
   else if (p^.kind = PARSER_RESULT) or (p^.kind = PARSER_KLEENE) then
     begin
       ParserMarkAllChildrenOf(p^.child)
-    end;
+    end
+  else
+    MakeAssertion((p^.kind = PARSER_RANGE) or (p^.kind = PARSER_MATCH), 'unknown child');
 end;
 
 procedure ParserUnmarkAll();
@@ -65,7 +68,11 @@ begin
   p^.mark := false;
   CursorBufferSeek(cb, p^.identifier);
 
-  if p^.kind = PARSER_RANGE then
+  if p^.kind = PARSER_MATCH then
+    begin
+      WriteParseOpMatch(cb, p^.match_char);
+    end
+  else if p^.kind = PARSER_RANGE then
     begin
       WriteParseOpRange(cb, p^.min_char, p^.max_char);
     end

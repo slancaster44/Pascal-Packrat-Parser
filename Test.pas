@@ -697,16 +697,16 @@ end;
 { TODO: same tests with memory backed files }
 
 begin
-  // TestAllocator();
-  // TestBufferCursor();
-  // TestCharManip();
-  // TestWriteBytecodes();
-  // TestCombinators();
-  // TestRangeParser();
-  // TestSequenceParser();
-  // TestAlternativeParsers();
-  // TestNonResultParsers();
-  // TestResultParser();
+  TestAllocator();
+  TestBufferCursor();
+  TestCharManip();
+  TestWriteBytecodes();
+  TestCombinators();
+  TestRangeParser();
+  TestSequenceParser();
+  TestAlternativeParsers();
+  TestNonResultParsers();
+  TestResultParser();
   TestKleeneParser();
 
   writeln('All tests successful');

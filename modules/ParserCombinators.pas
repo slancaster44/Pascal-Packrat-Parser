@@ -3,6 +3,7 @@ interface
 
 type
   ParserKind = (
+    PARSER_MATCH,         { Tests if character exactly matches }
     PARSER_RANGE,         { Tests if a character is in a given range } 
     PARSER_SEQUENCE,      { Tests if two sub-parsers pass }
     PARSER_ALTERNATIVE,   { Returns the state of the first sub-parser to pass }
@@ -18,6 +19,7 @@ type
     identifier : cardinal;
 
     case kind : ParserKind of
+      PARSER_MATCH : (match_char : char);
       PARSER_RANGE : (min_char, max_char : char);
       PARSER_SEQUENCE, PARSER_ALTERNATIVE : (left, right : ^rParser);
       PARSER_KLEENE, PARSER_RESULT : (child : ^rParser);
@@ -83,9 +85,12 @@ begin
   while (curParser <> nil) do
     begin
       if
-        (BothAre(PARSER_RANGE) and
-          ((curParser^.min_char) = (new_parser.min_char)) and
-          ((curParser^.max_char) = (new_parser.max_char)))
+        (BothAre(PARSER_MATCH) and
+          (curParser^.match_char = new_parser.match_char))
+        or
+          (BothAre(PARSER_RANGE) and
+            ((curParser^.min_char) = (new_parser.min_char)) and
+            ((curParser^.max_char) = (new_parser.max_char)))
         or
           (BothAre(PARSER_ALTERNATIVE) and ChildrenMatch())
         or
@@ -150,9 +155,8 @@ function CharacterParser(character : char) : pParser;
 var
   new_parser : rParser;
 begin
-  new_parser.kind := PARSER_RANGE;
-  new_parser.min_char := character;
-  new_parser.max_char := character;
+  new_parser.kind := PARSER_MATCH;
+  new_parser.match_char := character;
   exit (_internParser(new_parser));
 end;
 
