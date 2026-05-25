@@ -29,7 +29,6 @@ function CharacterRangeParser(min, max : char) : pParser;
 function SequenceParsers(left, right : pParser) : pParser;
 function AlternativeParsers(left, right : pParser) : pParser;
 function ResultGeneratingParser(child : pParser) : pParser;
-function BackpatchLeft(parent, child: pParser) : pParser;
 function BackpatchRight(parent, child: pParser) : pParser;
 function GetAllParsers() : pParser;
 procedure ResetParserInternPool();
@@ -202,25 +201,6 @@ begin
   new_parser.left := left;
   new_parser.right := right;
   exit (_internParser(new_parser));
-end;
-
-function BackpatchLeft(parent, child: pParser) : pParser;
-var
-  new_parser : rParser;
-  new_interned_parser : pParser;
-begin
-  MakeAssertion(child <> nil, 'New left child nil for backpatch');
-  MakeAssertion(IsParserValid(child), 'Cannot backpatch with invalid parser');
-  MakeAssertion((parent^.kind = PARSER_ALTERNATIVE) or
-    (parent^.kind = PARSER_SEQUENCE), 'Cannot backpatch parser');
-  MakeAssertion(parent^.left = nil, 'Left child not nil for backpatch');
-
-  new_parser := parent^;
-  new_parser.left := child;
-  new_interned_parser := _internParser(new_parser);
-  _replaceParser(parent, new_interned_parser);
-
-  exit (new_interned_parser);
 end;
 
 function BackpatchRight(parent, child: pParser) : pParser;

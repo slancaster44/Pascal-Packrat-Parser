@@ -176,15 +176,6 @@ begin
   MakeAssertion(p[3] = p[4], 'Alternative parser intern');
   MakeAssertion(p[4] <> p[5], 'Alternative parser unique');
 
-  // Kleene parser (regex: "c*"). many_c ::= 'c' | (many_c + 'c')
-  p[6] := SequenceParsers(nil, p[0]);
-  p[7] := AlternativeParsers(p[0], p[6]);
-  p[8] := BackpatchLeft(p[6], p[7]);
-  MakeAssertion(not IsParserValid(p[6]), 'Parser backpatch remove');
-  MakeAssertion(IsParserValid(p[8]), 'Parser backpatch insert');
-  MakeAssertion(p[8]^.left = p[7], 'Parser backpatch, direct replace');
-  MakeAssertion(p[7]^.right = p[8], 'Parser backpatch, indirect replace');
-
   //Test right. many_c ::= ('c' + many_c) | 'c'
   p[9] := SequenceParsers(CharacterParser('c'), nil);
   p[10] := AlternativeParsers(p[9],  CharacterRangeParser('b', 'c'));
