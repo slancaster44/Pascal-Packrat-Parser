@@ -15,13 +15,18 @@ bench: all
 all: \
 	str32 \
 	assertion \
+	strconv \
 	memory \
 	cursor_buffer \
 	char_manip \
 	combinator \
 	bytecode \
 	compiler \
-	interpreter
+	interpreter \
+	generator
+
+generator:
+	fpc -O- -g ./modules/ParserGenerator.pas -Fu./bin -FE./bin
 
 interpreter:
 	fpc -O- -g ./modules/ParserInterpreter.pas -Fu./bin -FE./bin
@@ -46,6 +51,9 @@ memory:
 
 assertion: 
 	fpc -O- -g ./modules/Assertion.pas -Fu./bin -FE./bin
+
+strconv:
+	fpc -O- -g ./modules/StrConv.pas -Fu./bin -FE./bin
 
 str32: 
 	fpc -O- -g ./modules/Str32.pas -FE./bin

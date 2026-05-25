@@ -19,6 +19,7 @@ procedure DiskCursorBuffer(cb : pCursorBuffer; fname : acRawStr; bm : BufferMode
 procedure MemoryCursorBuffer(
   cb : pCursorBuffer; mem : pChar; length : cardinal; mode : BufferMode);
 function CursorBufferRead(cb : pCursorBuffer) : char;
+procedure CursorBufferReadMultiple(cb : pCursorBuffer; buf : pChar; bufsize : cardinal);
 procedure CursorBufferWrite(cb : pCursorBuffer; c : char);
 procedure CursorBufferSeek(cb : pCursorBuffer; pos : cardinal);
 function CursorBufferPosition(cb : pCursorBuffer) : cardinal;
@@ -70,6 +71,17 @@ begin
     end;
 
   exit(output);
+end;
+
+procedure CursorBufferReadMultiple(cb : pCursorBuffer; buf : pChar; bufsize : cardinal);
+var
+  i : cardinal;
+begin
+  if bufsize <> 0 then
+    for i := 0 to bufsize-1 do
+      begin
+        buf[i] := CursorBufferRead(cb);
+      end;
 end;
 
 procedure CursorBufferWrite(cb : pCursorBuffer; c : char);

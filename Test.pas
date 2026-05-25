@@ -1,7 +1,8 @@
 program UnitTest;
 
 uses Memory, Assertion, CursorBuffer, CharManipulation, 
-  ParserCombinators, ParserBytecode, ParserCompiler, ParserInterpreter;
+  ParserCombinators, ParserBytecode, ParserCompiler, 
+  ParserInterpreter, ParserGenerator;
 
 procedure TestAllocator();
 var
@@ -694,7 +695,93 @@ begin
   CursorBufferClose(@cmd);
 end;
 
-{ TODO: same tests with memory backed files }
+procedure TestCharacterGenerator();
+var
+  testGrammar, gramCmd, inp : rCursorBuffer;
+  pi : rParserInterpreter;
+  res : pParseResult;
+begin
+  DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, 'b');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferClose(@testGrammar);
+
+  DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+
+  GenerateParser(@testGrammar, @gramCmd);
+
+  CursorBufferClose(@testGrammar);
+  CursorBufferClose(@gramCmd);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, 'b');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @gramCmd);
+  MakeAssertion(Parse(@pi, @res), 'Quoted character grammar, success');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@gramCmd);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, 'c');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @gramCmd);
+  MakeAssertion(not Parse(@pi, @res), 'Quoted character grammar, fail');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@gramCmd);
+
+  DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@testGrammar, '\');
+  CursorBufferWrite(@testGrammar, 'x');
+  CursorBufferWrite(@testGrammar, '6');
+  CursorBufferWrite(@testGrammar, '2');
+  CursorBufferClose(@testGrammar);
+
+  DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+
+  GenerateParser(@testGrammar, @gramCmd);
+
+  CursorBufferClose(@testGrammar);
+  CursorBufferClose(@gramCmd);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, 'b');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @gramCmd);
+  MakeAssertion(Parse(@pi, @res), 'Quoted character grammar, success');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@gramCmd);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, 'c');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @gramCmd);
+  MakeAssertion(not Parse(@pi, @res), 'Quoted character grammar, fail');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@gramCmd);
+end;
 
 begin
   TestAllocator();
@@ -708,6 +795,7 @@ begin
   TestNonResultParsers();
   TestResultParser();
   TestKleeneParser();
+  TestCharacterGenerator();
 
   writeln('All tests successful');
 end.
