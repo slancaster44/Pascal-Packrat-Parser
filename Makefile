@@ -21,7 +21,11 @@ all: \
 	combinator \
 	bytecode \
 	compiler \
-	interpreter
+	interpreter \
+	generator
+
+generator:
+	fpc -O- -g ./modules/ParserGenerator.pas -Fu./bin -FE./bin	
 
 interpreter:
 	fpc -O- -g ./modules/ParserInterpreter.pas -Fu./bin -FE./bin

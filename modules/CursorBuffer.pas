@@ -3,6 +3,7 @@ interface uses Str32;
 
 type
   pChar = ^char; 
+  ppChar = ^pChar;
 
   BufferKind = (BUFFER_DISK, BUFFER_MEMORY);
   BufferMode = (BUFFER_MODE_READ, BUFFER_MODE_WRITE);
@@ -11,13 +12,13 @@ type
     mode : BufferMode;
     case kind : BufferKind of
       BUFFER_DISK : (handle : file of char);
-      BUFFER_MEMORY : (cursor, length : cardinal; content : pChar);
+      BUFFER_MEMORY : (cursor, length : cardinal; content : ppChar);
   end;
   pCursorBuffer = ^rCursorBuffer;
 
 procedure DiskCursorBuffer(cb : pCursorBuffer; fname : acRawStr; bm : BufferMode);
 procedure MemoryCursorBuffer(
-  cb : pCursorBuffer; mem : pChar; length : cardinal; mode : BufferMode);
+  cb : pCursorBuffer; mem : ppChar; length : cardinal; mode : BufferMode);
 function CursorBufferRead(cb : pCursorBuffer) : char;
 procedure CursorBufferWrite(cb : pCursorBuffer; c : char);
 procedure CursorBufferSeek(cb : pCursorBuffer; pos : cardinal);
@@ -28,7 +29,7 @@ procedure CursorBufferClose(cb : pCursorBuffer);
 
 
 implementation
-uses Assertion;
+uses Assertion, Memory;
 
 procedure DiskCursorBuffer(cb : pCursorBuffer; fname : acRawStr; bm : BufferMode);
 begin
@@ -44,7 +45,7 @@ begin
 end;
 
 procedure MemoryCursorBuffer(
-  cb : pCursorBuffer; mem : pChar; length : cardinal; mode : BufferMode);
+  cb : pCursorBuffer; mem : ppChar; length : cardinal; mode : BufferMode);
 begin
   cb^.kind := BUFFER_MEMORY;
   cb^.cursor := 0;
@@ -65,14 +66,19 @@ begin
   else if (cb^.kind = BUFFER_MEMORY) then
     begin
       MakeAssertion(cb^.cursor < cb^.length, 'Read out of bounds');
-      output := cb^.content[cb^.cursor];
+      output := (cb^.content^)[cb^.cursor];
       cb^.cursor := cb^.cursor + 1;
     end;
 
   exit(output);
 end;
 
+const
+  DEFAULT_MEMBUF_LEN = 32;
 procedure CursorBufferWrite(cb : pCursorBuffer; c : char);
+var
+  newlen, i : cardinal;
+  tmp : pChar;
 begin
   MakeAssertion(cb^.mode = BUFFER_MODE_WRITE, 'Attempted write to non-writable');
 
@@ -80,8 +86,23 @@ begin
     write(cb^.handle, c)
   else
     begin
-      MakeAssertion(cb^.cursor < cb^.length, 'Write out of bounds');
-      cb^.content[cb^.cursor] := c;
+      if cb^.cursor <= cb^.length then
+        begin
+          newlen := cb^.length * 2;
+          if newlen = 0 then newlen := DEFAULT_MEMBUF_LEN;
+          tmp := MemoryAllocate(newlen);
+
+          if cb^.length <> 0 then
+            for i := 0 to newlen-1 do
+              begin
+                tmp[i] := (cb^.content^)[i];
+              end;
+
+          cb^.length := newlen;
+          cb^.content^ := tmp;
+        end;
+
+      (cb^.content^)[cb^.cursor] := c;
       cb^.cursor := cb^.cursor + 1;
     end;
 end;

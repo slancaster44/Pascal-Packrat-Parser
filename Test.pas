@@ -99,7 +99,7 @@ end;
 procedure TestBufferCursor();
 var
   cb : rCursorBuffer;
-  mem : array [0..3] of char;
+  mem : pChar;
 begin
   DiskCursorBuffer(@cb, 'test.txt', BUFFER_MODE_WRITE);
   CursorBufferWrite(@cb, 't');
@@ -124,14 +124,14 @@ begin
 
   CursorBufferClose(@cb);
 
-  MemoryCursorBuffer(@cb, mem, 4, BUFFER_MODE_WRITE);
+  MemoryCursorBuffer(@cb, @mem, 0, BUFFER_MODE_WRITE);
   CursorBufferWrite(@cb, 't');
   CursorBufferWrite(@cb, 'e');
   CursorBufferWrite(@cb, 's');
   CursorBufferWrite(@cb, 't');
   CursorBufferClose(@cb);
 
-  MemoryCursorBuffer(@cb, mem, 4, BUFFER_MODE_READ);
+  MemoryCursorBuffer(@cb, @mem, 4, BUFFER_MODE_READ);
   MakeAssertion(CursorBufferRead(@cb) = 't', 'Readback, mem buffer 1');
   MakeAssertion(CursorBufferRead(@cb) = 'e', 'Readback, mem buffer 2');
   MakeAssertion(CursorBufferRead(@cb) = 's', 'Readback, mem buffer 3');
