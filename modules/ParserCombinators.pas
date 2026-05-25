@@ -6,6 +6,7 @@ type
     PARSER_RANGE,         { Tests if a character is in a given range } 
     PARSER_SEQUENCE,      { Tests if two sub-parsers pass }
     PARSER_ALTERNATIVE,   { Returns the state of the first sub-parser to pass }
+    PARSER_KLEENE,        { zero or more instances of the sub-expression }
     PARSER_RESULT         { Generates a result, given the current state }
   );
 
@@ -19,7 +20,7 @@ type
     case kind : ParserKind of
       PARSER_RANGE : (min_char, max_char : char);
       PARSER_SEQUENCE, PARSER_ALTERNATIVE : (left, right : ^rParser);
-      PARSER_RESULT : (child : ^rParser);
+      PARSER_KLEENE, PARSER_RESULT : (child : ^rParser);
   end;
   pParser = ^rParser;
 
@@ -28,6 +29,7 @@ function CharacterParser(character : char) : pParser;
 function CharacterRangeParser(min, max : char) : pParser;
 function SequenceParsers(left, right : pParser) : pParser;
 function AlternativeParsers(left, right : pParser) : pParser;
+function KleeneParser(child : pParser) : pParser;
 function ResultGeneratingParser(child : pParser) : pParser;
 function BackpatchRight(parent, child: pParser) : pParser;
 function GetAllParsers() : pParser;
@@ -90,6 +92,9 @@ begin
           (BothAre(PARSER_SEQUENCE) and ChildrenMatch())
         or
           ((BothAre(PARSER_RESULT)) and
+            (curParser^.child = new_parser.child))
+        or
+          ((BothAre(PARSER_KLEENE)) and 
             (curParser^.child = new_parser.child))
       then exit (curParser);
         
@@ -173,6 +178,18 @@ begin
   new_parser.kind := PARSER_SEQUENCE;
   new_parser.left := left;
   new_parser.right := right;
+  exit (_internParser(new_parser));
+end;
+
+function KleeneParser(child : pParser) : pParser;
+var
+  new_parser : rParser;
+begin
+  MakeAssertion(child <> nil, 'Child parser must not be nil');
+  MakeAssertion(IsParserValid(child), 'Child parser must be valid');
+
+  new_parser.kind := PARSER_KLEENE;
+  new_parser.child := child;
   exit (_internParser(new_parser));
 end;
 

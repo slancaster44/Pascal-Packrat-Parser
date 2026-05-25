@@ -586,7 +586,7 @@ begin
   MakeAssertion(res^.start = 13, 'Complex expr, start');
   MakeAssertion(res^.stop = 18, 'Complex expr, stop');
 
-  PrintParseResult(res, 0);
+  // PrintParseResult(res, 0);
 
   CursorBufferRead(@inp); 
   res := nil;
@@ -601,17 +601,113 @@ begin
   CursorBufferClose(@cmd);
 end;
 
+procedure TestKleeneParser();
+var
+  p0, p1, p2, final_parser : pParser;
+  cmd, inp : rCursorBuffer;
+  pi : rParserInterpreter;
+  res : pParseResult;
+begin
+  p0 := KleeneParser(CharacterParser('a'));
+  p1 := KleeneParser(CharacterParser('a'));
+  p2 := KleeneParser(CharacterParser('b'));
+  final_parser := ResultGeneratingParser(AlternativeParsers(p0, p2));
+
+  MakeAssertion(p1 = p0, 'Kleene parser intern');
+  MakeAssertion(p2 <> p0, 'Kleene parser intern');
+
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  CompileParser(@cmd, final_parser);
+  CursorBufferClose(@cmd);
+
+  { EOF file }
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferClose(@inp);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @cmd);
+  MakeAssertion(Parse(@pi, @res), 'Kleene, eof');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 'Kleene, eof identifier');
+  MakeAssertion(res^.start = 0, 'Kleene, eof start');
+  MakeAssertion(res^.start = res^.stop, 'Kleene, eof start/stop');
+  MakeAssertion(res^.child = nil, 'Kleene, eof child');
+  MakeAssertion(res^.sibling = nil, 'Kleene, eof sibling');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
+
+  { Content, no match }
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, 'c');
+  CursorBufferClose(@inp);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @cmd);
+  MakeAssertion(Parse(@pi, @res), 'Kleene, non-match');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 'Kleene, non-match identifier');
+  MakeAssertion(res^.start = 0, 'Kleene, non-match start');
+  MakeAssertion(res^.start = res^.stop, 'Kleene, non-match start/stop');
+  MakeAssertion(res^.child = nil, 'Kleene, non-match child');
+  MakeAssertion(res^.sibling = nil, 'Kleene, non-match sibling');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
+
+  { Content, match one }
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, 'a');
+  CursorBufferClose(@inp);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @cmd);
+  MakeAssertion(Parse(@pi, @res), 'Kleene, match');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 'Kleene, match identifier');
+  MakeAssertion(res^.start = 0, 'Kleene, match start');
+  MakeAssertion(res^.stop = 1, 'Kleene, match stop');
+  MakeAssertion(res^.child = nil, 'Kleene, match child');
+  MakeAssertion(res^.sibling = nil, 'Kleene, match sibling');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
+
+  { Content, match multiple }
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, 'a');
+  CursorBufferWrite(@inp, 'a');
+  CursorBufferWrite(@inp, 'a');
+  CursorBufferClose(@inp);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @cmd);
+  MakeAssertion(Parse(@pi, @res), 'Kleene, match');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 'Kleene, match identifier');
+  MakeAssertion(res^.start = 0, 'Kleene, match start');
+  MakeAssertion(res^.stop = 3, 'Kleene, match stop');
+  MakeAssertion(res^.child = nil, 'Kleene, match child');
+  MakeAssertion(res^.sibling = nil, 'Kleene, match sibling');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
+end;
+
 { TODO: same tests with memory backed files }
 
 begin
-  TestAllocator();
-  TestBufferCursor();
-  TestCharManip();
-  TestWriteBytecodes();
-  TestCombinators();
-  TestRangeParser();
-  TestSequenceParser();
-  TestAlternativeParsers();
-  TestNonResultParsers();
-  TestResultParser();
+  // TestAllocator();
+  // TestBufferCursor();
+  // TestCharManip();
+  // TestWriteBytecodes();
+  // TestCombinators();
+  // TestRangeParser();
+  // TestSequenceParser();
+  // TestAlternativeParsers();
+  // TestNonResultParsers();
+  // TestResultParser();
+  TestKleeneParser();
+
+  writeln('All tests successful');
 end.

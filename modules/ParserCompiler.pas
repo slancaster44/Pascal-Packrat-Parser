@@ -15,6 +15,7 @@ begin
     PARSER_RANGE: exit (ParserInstructionLength(PARSE_OP_RANGE));
     PARSER_SEQUENCE: exit (ParserInstructionLength(PARSE_OP_SEQ));
     PARSER_ALTERNATIVE: exit (ParserInstructionLength(PARSE_OP_ALT));
+    PARSER_KLEENE: exit (ParserInstructionLength(PARSE_OP_KLEENE));
     PARSER_RESULT: exit (ParserInstructionLength(PARSE_OP_RES));
   else
     MakeAssertion(false, 'Unknown parser type, length');
@@ -37,7 +38,7 @@ begin
       ParserMarkAllChildrenOf(p^.left);
       ParserMarkAllChildrenOf(p^.right);
     end
-  else if (p^.kind = PARSER_RESULT) then
+  else if (p^.kind = PARSER_RESULT) or (p^.kind = PARSER_KLEENE) then
     begin
       ParserMarkAllChildrenOf(p^.child)
     end;
@@ -83,6 +84,12 @@ begin
       WriteParseOpAlt(cb, left_loc, right_loc);
       DoCompile(cb, p^.left);
       DoCompile(cb, p^.right);
+    end
+  else if p^.kind = PARSER_KLEENE then
+    begin
+      loc := p^.child^.identifier;
+      WriteParseOpKleene(cb, loc);
+      DoCompile(cb, p^.child);
     end
   else if p^.kind = PARSER_RESULT then
     begin

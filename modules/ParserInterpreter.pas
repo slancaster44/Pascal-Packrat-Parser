@@ -40,6 +40,9 @@ uses ParserBytecode, Assertion, CharManipulation;
 procedure InitParserInterpreter
   (p : pParserInterpreter; inputText, parserCode : pCursorBuffer);
 begin
+  MakeAssertion(inputText^.mode = BUFFER_MODE_READ, 'Input buffer must be readable');
+  MakeAssertion(parserCode^.mode = BUFFER_MODE_READ, 'Command buffer must be readable');
+
   p^.inp := inputText;
   p^.cmd := parserCode;
   p^.memos := nil;
@@ -157,6 +160,24 @@ begin
           childRes := nil;
           res := ParserEx(p, @childRes);
         end;
+    end
+  else if cmd = PARSE_OP_KLEENE then
+    begin
+      hi := CursorBufferRead(p^.cmd);
+      lo := CursorBufferRead(p^.cmd);
+
+      repeat
+        CursorBufferSeek(p^.cmd, Combine(hi, lo));
+        res := ParserEx(p, @childRes);
+        if (res) and (childRes <> nil) then 
+          begin
+            tmpRes := childRes;
+            while (tmpRes^.sibling <> nil) do tmpRes := tmpRes^.sibling;
+            tmpRes^.sibling := siblingRes;
+          end;
+      until res = false;
+
+      res := true;
     end
   else if cmd = PARSE_OP_RES then
     begin
