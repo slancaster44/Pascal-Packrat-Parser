@@ -834,6 +834,70 @@ begin
 
   CursorBufferClose(@inp);
   CursorBufferClose(@gramCmd);
+end;
+
+procedure TestSequenceGenerator();
+var
+  testGrammar, gramCmd, inp : rCursorBuffer;
+  pi : rParserInterpreter;
+  res : pParseResult;
+begin
+  DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, 'a');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, '+');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, '(');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, 'a');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, '-');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, 'z');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, ')');
+  CursorBufferClose(@testGrammar);
+
+  DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+
+  GenerateParser(@testGrammar, @gramCmd);
+
+  CursorBufferClose(@testGrammar);
+  CursorBufferClose(@gramCmd);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, 'a');
+  CursorBufferWrite(@inp, 'c');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @gramCmd);
+  MakeAssertion(Parse(@pi, @res), 'Range character grammar, success');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@gramCmd);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, '1');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @gramCmd);
+  MakeAssertion(not Parse(@pi, @res), 'Range character grammar, success');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@gramCmd);
 
 end;
 
@@ -849,8 +913,9 @@ begin
   TestNonResultParsers();
   TestResultParser();
   TestKleeneParser();
-  // TestCharacterGenerator();
+  TestCharacterGenerator();
   TestCharacterRangeGenerator();
+  TestSequenceGenerator();
 
   writeln('All tests successful');
 end.

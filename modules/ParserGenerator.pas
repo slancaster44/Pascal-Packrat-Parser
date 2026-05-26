@@ -9,10 +9,10 @@ uses Assertion, Memory, StrConv,
 	ParserCombinators, ParserCompiler, ParserInterpreter;
 
 const
-	BOOTSTRAP_PARSER_SIZE = 128;
+	BOOTSTRAP_PARSER_SIZE = 256;
 var
 	BootstrapBytecode : array [0..BOOTSTRAP_PARSER_SIZE] of char;
-	HEX_CH_ID, LIT_CH_ID, RANGE_CH_ID : cardinal;
+	HEX_CH_ID, LIT_CH_ID, RANGE_CH_ID, SEQ_ID : cardinal;
 	cmd : rCursorBuffer;
 
 function CombinateGrammarTerm(stmt : pParseResult; gram : pCursorBuffer) : pParser;
@@ -53,6 +53,14 @@ begin
 
 			result := CharacterRangeParser(left^.match_char, right^.match_char);
 		end
+	else if stmt^.identifier = SEQ_ID then
+		begin
+			MakeAssertion(stmt^.child <> nil, 'Range parser, child');
+			MakeAssertion(stmt^.child^.sibling <> nil, 'Range parser sibling');
+			left := CombinateGrammarTerm(stmt^.child, gram);
+			right := CombinateGrammarTerm(stmt^.child^.sibling, gram);
+			result := SequenceParsers(left, right);
+		end
 	else
 		begin
 			write(stmt^.identifier);
@@ -90,7 +98,8 @@ end;
 var
 	hexDigitParser, hexChParser, quoteChParser : pParser;
 	charParser, parserParser, wsParser : pParser;
-	rangeParser : pParser;
+	rangeParser, groupPred, groupParser, termParser : pParser;
+	seqParser, exprParser : pParser;
 initialization
 	{ wsParser = \x00 - \x20 }
 	wsParser := KleeneParser(CharacterRangeParser(char(0), char(32)));
@@ -133,7 +142,34 @@ initialization
 				SequenceParsers(CharacterParser('-'), wsParser)),
 			charParser));
 
-	parserParser := AlternativeParsers(rangeParser, charParser);
+	{ groupParser = '(' + expr + ')' }
+	groupPred := SequenceParsers(CharacterParser('('), nil);
+	groupParser := SequenceParsers(
+		groupPred,
+		SequenceParsers(
+			wsParser,
+			CharacterParser(')')));
+
+	{ termParser = wsParser + (rangeParser | charParser) }
+	termParser := SequenceParsers(wsParser,
+		AlternativeParsers(
+			AlternativeParsers(rangeParser, charParser),
+			groupParser));
+
+	{ seqParser = termParser + wsParser + '+' + termParser }
+	seqParser := ResultGeneratingParser(
+		SequenceParsers(
+			SequenceParsers(
+				termParser,
+				SequenceParsers(
+					wsParser, 
+					CharacterParser('+'))),
+			termParser));
+
+	exprParser := AlternativeParsers(seqParser, termParser);
+	groupPred := BackpatchRight(groupPred, exprParser);
+
+	parserParser := exprParser;
 
 	MemoryCursorBuffer(@cmd, BootstrapBytecode, BOOTSTRAP_PARSER_SIZE, BUFFER_MODE_WRITE);
 	CompileParser(@cmd, parserParser);
@@ -141,6 +177,7 @@ initialization
 	HEX_CH_ID := hexChParser^.identifier;
 	LIT_CH_ID := quoteChParser^.identifier;
 	RANGE_CH_ID := rangeParser^.identifier;
+	SEQ_ID := seqParser^.identifier;
 
 	write('Bootstrap parser size: ');
 	writeln(CursorBufferPosition(@cmd));

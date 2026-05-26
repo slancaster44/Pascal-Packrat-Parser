@@ -149,7 +149,9 @@ begin
           tmpRes := childRes;
           while (tmpRes^.sibling <> nil) do tmpRes := tmpRes^.sibling;
           tmpRes^.sibling := siblingRes;
-        end;
+        end
+      else if (res) and (childRes = nil) and (siblingRes <> nil) then
+        childRes := siblingRes;
     end
   else if cmd = PARSE_OP_ALT then
     begin
@@ -181,7 +183,9 @@ begin
             tmpRes := childRes;
             while (tmpRes^.sibling <> nil) do tmpRes := tmpRes^.sibling;
             tmpRes^.sibling := siblingRes;
-          end;
+          end
+        else if (res) and (childRes = nil) and (siblingRes <> nil) then
+          childRes := siblingRes;
       until res = false;
 
       res := true;

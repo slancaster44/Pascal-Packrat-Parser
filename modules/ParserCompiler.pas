@@ -27,6 +27,9 @@ var
   curLoc : cardinal;
 procedure ParserMarkAllChildrenOf(p : pParser);
 begin
+  MakeAssertion(IsParserValid(p), 'Invalid child');
+  MakeAssertion(p <> nil, 'Nil child, forgot backpatch?');
+
   if p^.mark then
     exit;
 
