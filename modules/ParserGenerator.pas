@@ -12,7 +12,7 @@ const
 	BOOTSTRAP_PARSER_SIZE = 256;
 var
 	BootstrapBytecode : array [0..BOOTSTRAP_PARSER_SIZE] of char;
-	HEX_CH_ID, LIT_CH_ID, RANGE_CH_ID, SEQ_ID : cardinal;
+	HEX_CH_ID, LIT_CH_ID, RANGE_CH_ID, POST_ID, SEQ_ID : cardinal;
 	cmd : rCursorBuffer;
 
 function CombinateGrammarTerm(stmt : pParseResult; gram : pCursorBuffer) : pParser;
@@ -43,20 +43,23 @@ begin
 			CursorBufferReadMultiple(gram, tmpBuff, readSize);
 			result := CharacterParser(tmpBuff[1]);
 		end
+	else if stmt^.identifier = POST_ID then
+		begin
+			left := CombinateGrammarTerm(stmt^.child, gram);
+			result := KleeneParser(left);
+		end
 	else if stmt^.identifier = RANGE_CH_ID then
 		begin
 			MakeAssertion(stmt^.child <> nil, 'Range parser, child');
 			MakeAssertion(stmt^.child^.sibling <> nil, 'Range parser sibling');
-
 			left := CombinateGrammarTerm(stmt^.child, gram);
 			right := CombinateGrammarTerm(stmt^.child^.sibling, gram);
-
 			result := CharacterRangeParser(left^.match_char, right^.match_char);
 		end
 	else if stmt^.identifier = SEQ_ID then
 		begin
-			MakeAssertion(stmt^.child <> nil, 'Range parser, child');
-			MakeAssertion(stmt^.child^.sibling <> nil, 'Range parser sibling');
+			MakeAssertion(stmt^.child <> nil, 'SequenceParsers parser, child');
+			MakeAssertion(stmt^.child^.sibling <> nil, 'SequenceParsers parser sibling');
 			left := CombinateGrammarTerm(stmt^.child, gram);
 			right := CombinateGrammarTerm(stmt^.child^.sibling, gram);
 			result := SequenceParsers(left, right);
@@ -99,7 +102,7 @@ var
 	hexDigitParser, hexChParser, quoteChParser : pParser;
 	charParser, parserParser, wsParser : pParser;
 	rangeParser, groupPred, groupParser, termParser : pParser;
-	seqParser, exprParser : pParser;
+	postfixParser, postfixOrTermP, seqParser, exprParser : pParser;
 initialization
 	{ wsParser = \x00 - \x20 }
 	wsParser := KleeneParser(CharacterRangeParser(char(0), char(32)));
@@ -156,17 +159,26 @@ initialization
 			AlternativeParsers(rangeParser, charParser),
 			groupParser));
 
-	{ seqParser = termParser + wsParser + '+' + termParser }
+	{ postfixParser = termParser * }
+	postfixParser := ResultGeneratingParser(
+		SequenceParsers(
+			termParser,
+			SequenceParsers(
+				wsParser,
+				CharacterParser('*'))));
+	postfixOrTermP := AlternativeParsers(postfixParser, termParser);
+
+	{ seqParser = postfixOrTermP + wsParser + '+' + postfixOrTermP }
 	seqParser := ResultGeneratingParser(
 		SequenceParsers(
 			SequenceParsers(
-				termParser,
+				postfixOrTermP,
 				SequenceParsers(
 					wsParser, 
 					CharacterParser('+'))),
-			termParser));
+			postfixOrTermP));
 
-	exprParser := AlternativeParsers(seqParser, termParser);
+	exprParser := AlternativeParsers(seqParser, postfixOrTermP);
 	groupPred := BackpatchRight(groupPred, exprParser);
 
 	parserParser := exprParser;
@@ -177,6 +189,7 @@ initialization
 	HEX_CH_ID := hexChParser^.identifier;
 	LIT_CH_ID := quoteChParser^.identifier;
 	RANGE_CH_ID := rangeParser^.identifier;
+	POST_ID := postfixParser^.identifier;
 	SEQ_ID := seqParser^.identifier;
 
 	write('Bootstrap parser size: ');
