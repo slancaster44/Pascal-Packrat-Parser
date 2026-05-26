@@ -12,14 +12,14 @@ const
 	BOOTSTRAP_PARSER_SIZE = 128;
 var
 	BootstrapBytecode : array [0..BOOTSTRAP_PARSER_SIZE] of char;
-	HEX_CH_ID, LIT_CH_ID : cardinal;
+	HEX_CH_ID, LIT_CH_ID, RANGE_CH_ID : cardinal;
 	cmd : rCursorBuffer;
 
 function CombinateGrammarTerm(stmt : pParseResult; gram : pCursorBuffer) : pParser;
 var
 	startGramPos, readSize : cardinal;
 	tmpBuff : pChar;
-	result : pParser;
+	left, right, result : pParser;
 begin
 	startGramPos := CursorBufferPosition(gram);
 	tmpBuff := nil;
@@ -42,6 +42,16 @@ begin
 			CursorBufferSeek(gram, stmt^.start);
 			CursorBufferReadMultiple(gram, tmpBuff, readSize);
 			result := CharacterParser(tmpBuff[1]);
+		end
+	else if stmt^.identifier = RANGE_CH_ID then
+		begin
+			MakeAssertion(stmt^.child <> nil, 'Range parser, child');
+			MakeAssertion(stmt^.child^.sibling <> nil, 'Range parser sibling');
+
+			left := CombinateGrammarTerm(stmt^.child, gram);
+			right := CombinateGrammarTerm(stmt^.child^.sibling, gram);
+
+			result := CharacterRangeParser(left^.match_char, right^.match_char);
 		end
 	else
 		begin
@@ -78,43 +88,59 @@ begin
 end;
 
 var
-	hexDigitParser, charParser, parserParser, wsParser : pParser;
+	hexDigitParser, hexChParser, quoteChParser : pParser;
+	charParser, parserParser, wsParser : pParser;
+	rangeParser : pParser;
 initialization
 	{ wsParser = \x00 - \x20 }
-	wsParser := CharacterRangeParser(char(0), char(32));
+	wsParser := KleeneParser(CharacterRangeParser(char(0), char(32)));
 
-	{ hexDigitParser = ('0' - '9') | ('a' - 'f') | 'A' - 'F'}
+	{ hexDigitParser = ('0' - '9') | ('a' - 'f') | 'A' - 'F' }
 	hexDigitParser := AlternativeParsers(
 		CharacterRangeParser('0', '9'),
 		AlternativeParsers(
 			CharacterRangeParser('a', 'f'),
 			CharacterRangeParser('A', 'F')));
 
-	{ charParser = (''' + (\x00 - \xFF) + ''') | ('\' + 'x' + hexDigitParser + hexDigitParser)}
-	charParser := AlternativeParsers(
-		{'<char>' form}
-		ResultGeneratingParser(
+	{ hexChParser = '\' + 'x' + hexDigitParser + hexDigitParser}
+	hexChParser := ResultGeneratingParser(
+		SequenceParsers(
 			SequenceParsers(
-				CharacterParser(char(39)),
-				SequenceParsers(CharacterRangeParser(char(0), char(255)),
-					CharacterParser(char(39))))),
-		{\x<HEX><HEX> form}
-		ResultGeneratingParser(
-			SequenceParsers(
-				SequenceParsers(
-					CharacterParser('\'),
-					CharacterParser('x')),
-			 	SequenceParsers(
-			 		hexDigitParser,
-			 		hexDigitParser))));
+				CharacterParser('\'),
+				CharacterParser('x')),
+		 	SequenceParsers(
+		 		hexDigitParser,
+		 		hexDigitParser)));
 
-	parserParser := AlternativeParsers(charParser, wsParser);
+	{ quoteChParser = ''' + (\x00 - \xFF) + ''' }
+	quoteChParser := ResultGeneratingParser(
+		SequenceParsers(
+			CharacterParser(char(39)),
+			SequenceParsers(
+				CharacterRangeParser(char(0), char(255)),
+				CharacterParser(char(39)))));
+
+	{ charParser = quoteChParser | hexChParser }
+	charParser := AlternativeParsers(
+		quoteChParser,
+		hexChParser);
+
+	{ rangeParser = charParser + wsParser + '-' + wsParser + charParser }
+	rangeParser := ResultGeneratingParser(
+		SequenceParsers(
+			SequenceParsers(
+				SequenceParsers(charParser, wsParser),
+				SequenceParsers(CharacterParser('-'), wsParser)),
+			charParser));
+
+	parserParser := AlternativeParsers(rangeParser, charParser);
 
 	MemoryCursorBuffer(@cmd, BootstrapBytecode, BOOTSTRAP_PARSER_SIZE, BUFFER_MODE_WRITE);
 	CompileParser(@cmd, parserParser);
 
-	HEX_CH_ID := charParser^.right^.identifier;
-	LIT_CH_ID := charParser^.left^.identifier;
+	HEX_CH_ID := hexChParser^.identifier;
+	LIT_CH_ID := quoteChParser^.identifier;
+	RANGE_CH_ID := rangeParser^.identifier;
 
 	write('Bootstrap parser size: ');
 	writeln(CursorBufferPosition(@cmd));
