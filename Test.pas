@@ -705,6 +705,7 @@ begin
   CursorBufferWrite(@testGrammar, char(39));
   CursorBufferWrite(@testGrammar, 'b');
   CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, ';');
   CursorBufferClose(@testGrammar);
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
@@ -746,6 +747,7 @@ begin
   CursorBufferWrite(@testGrammar, 'x');
   CursorBufferWrite(@testGrammar, '6');
   CursorBufferWrite(@testGrammar, '2');
+  CursorBufferWrite(@testGrammar, ';');
   CursorBufferClose(@testGrammar);
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
@@ -799,6 +801,7 @@ begin
   CursorBufferWrite(@testGrammar, char(39));
   CursorBufferWrite(@testGrammar, 'z');
   CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, ';');
   CursorBufferClose(@testGrammar);
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
@@ -848,6 +851,7 @@ begin
   CursorBufferWrite(@testGrammar, char(39));
   CursorBufferWrite(@testGrammar, ' ');
   CursorBufferWrite(@testGrammar, '*');
+  CursorBufferWrite(@testGrammar, ';');
   CursorBufferClose(@testGrammar);
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
@@ -915,6 +919,9 @@ begin
   CursorBufferWrite(@testGrammar, char(39));
   CursorBufferWrite(@testGrammar, ' ');
   CursorBufferWrite(@testGrammar, ')');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, '*');
+  CursorBufferWrite(@testGrammar, ';');
   CursorBufferClose(@testGrammar);
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
@@ -951,7 +958,148 @@ begin
 
   CursorBufferClose(@inp);
   CursorBufferClose(@gramCmd);
+end;
 
+procedure TestAltGenerators();
+var
+  testGrammar, gramCmd, inp : rCursorBuffer;
+  pi : rParserInterpreter;
+  res : pParseResult;
+begin
+  DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, 'a');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, '+');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, '(');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, 'a');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, '/');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, 'y');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, '+');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, 'z');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, ')');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, '*');
+  CursorBufferWrite(@testGrammar, ';');
+  CursorBufferClose(@testGrammar);
+
+  DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+
+  GenerateParser(@testGrammar, @gramCmd);
+
+  CursorBufferClose(@testGrammar);
+  CursorBufferClose(@gramCmd);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, 'a');
+  CursorBufferWrite(@inp, 'a');
+  CursorBufferWrite(@inp, 'y');
+  CursorBufferWrite(@inp, 'z');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @gramCmd);
+  MakeAssertion(Parse(@pi, @res), 'Alternative grammar, success');
+  MakeAssertion(CursorBufferEnd(@inp), 'Alternative grammar, length 1');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@gramCmd);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, '1');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @gramCmd);
+  MakeAssertion(not Parse(@pi, @res), 'Alternative grammar, success');
+  MakeAssertion(not CursorBufferEnd(@inp), 'Alternative grammar, length 2');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@gramCmd);
+end;
+
+procedure TestForwardDeclaration();
+var
+  testGrammar, gramCmd, inp : rCursorBuffer;
+  pi : rParserInterpreter;
+  res : pParseResult;
+begin
+  DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@testGrammar, 'a');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, '=');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, 'a');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, ';');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, 'a');
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, '+');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, 'b');
+  CursorBufferWrite(@testGrammar, char(39));
+  CursorBufferWrite(@testGrammar, ' ');
+  CursorBufferWrite(@testGrammar, ';');
+  CursorBufferClose(@testGrammar);
+
+  DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+
+  GenerateParser(@testGrammar, @gramCmd);
+
+  CursorBufferClose(@testGrammar);
+  CursorBufferClose(@gramCmd);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, 'a');
+  CursorBufferWrite(@inp, 'b');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @gramCmd);
+  MakeAssertion(Parse(@pi, @res), 'Forward declaration, success');
+  MakeAssertion(CursorBufferEnd(@inp), 'Forward declaration, length 1');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@gramCmd);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, '1');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_READ);
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+
+  InitParserInterpreter(@pi, @inp, @gramCmd);
+  MakeAssertion(not Parse(@pi, @res), 'Forward declaration, success');
+  MakeAssertion(not CursorBufferEnd(@inp), 'Forward declaration, length 2');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@gramCmd);
 end;
 
 begin
@@ -970,6 +1118,8 @@ begin
   TestCharacterRangeGenerator();
   TestPostfixGenerator();
   TestSequenceGenerator();
+  TestAltGenerators();
+  TestForwardDeclaration();
 
   writeln('All tests successful');
 end.

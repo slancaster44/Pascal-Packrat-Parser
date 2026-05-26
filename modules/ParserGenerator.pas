@@ -5,21 +5,67 @@ uses CursorBuffer;
 procedure GenerateParser(grammar, output : pCursorBuffer);
 
 implementation
-uses Assertion, Memory, StrConv,
+uses Assertion, Memory, StrConv, Str32,
 	ParserCombinators, ParserCompiler, ParserInterpreter;
 
+type
+		rIdentifier = record
+			next : ^rIdentifier;
+			sigName : acRawStr;
+			boundParser : pParser;
+		end;
+		pIdentifier = ^rIdentifier;
+
 const
-	BOOTSTRAP_PARSER_SIZE = 256;
+	BOOTSTRAP_PARSER_SIZE = 300;
 var
 	BootstrapBytecode : array [0..BOOTSTRAP_PARSER_SIZE] of char;
-	HEX_CH_ID, LIT_CH_ID, RANGE_CH_ID, POST_ID, SEQ_ID : cardinal;
+	HEX_CH_ID, LIT_CH_ID, RANGE_CH_ID, POST_ID : cardinal;
+	SEQ_ID, ALT_ID, IDENT_ID, ASSGN_ID : cardinal;
 	cmd : rCursorBuffer;
+	idents : pIdentifier;
+
+procedure ResetIdentifiers();
+var
+	toFree : pIdentifier;
+begin
+	while idents <> nil do
+		begin
+			toFree := idents;
+			idents := idents^.next;
+			MemoryDeallocate(idents);
+		end;
+end;
+
+function GetIdentifier(fullName : pChar; fullLen : cardinal) : pIdentifier;
+var
+	sigName : acRawStr;
+	curIdent : pIdentifier;
+begin
+	sigName := FreeStrToRawStr(fullName, fullLen);
+
+	curIdent := idents;
+	while curIdent <> nil do
+		begin
+			if curIdent^.sigName = sigName then exit(curIdent);
+			curIdent := curIdent^.next;
+		end;
+
+	curIdent := MemoryAllocate(sizeof(rIdentifier));
+	curIdent^.next := idents;
+	curIdent^.sigName := sigName;
+	curIdent^.boundParser := nil;
+
+	idents := curIdent;
+	exit (curIdent);
+end;
 
 function CombinateGrammarTerm(stmt : pParseResult; gram : pCursorBuffer) : pParser;
 var
 	startGramPos, readSize : cardinal;
 	tmpBuff : pChar;
 	left, right, result : pParser;
+	id : pIdentifier;
 begin
 	startGramPos := CursorBufferPosition(gram);
 	tmpBuff := nil;
@@ -43,6 +89,15 @@ begin
 			CursorBufferReadMultiple(gram, tmpBuff, readSize);
 			result := CharacterParser(tmpBuff[1]);
 		end
+	else if stmt^.identifier = IDENT_ID then
+		begin
+			readSize := stmt^.stop - stmt^.start;
+			tmpBuff := MemoryAllocate(readSize);
+			CursorBufferSeek(gram, stmt^.start);
+			CursorBufferReadMultiple(gram, tmpBuff, readSize);
+			id := GetIdentifier(tmpBuff, readSize);
+			result := id^.boundParser;
+		end
 	else if stmt^.identifier = POST_ID then
 		begin
 			left := CombinateGrammarTerm(stmt^.child, gram);
@@ -63,6 +118,26 @@ begin
 			left := CombinateGrammarTerm(stmt^.child, gram);
 			right := CombinateGrammarTerm(stmt^.child^.sibling, gram);
 			result := SequenceParsers(left, right);
+		end
+	else if stmt^.identifier = ALT_ID then
+		begin
+			MakeAssertion(stmt^.child <> nil, 'Alternative parser, child');
+			MakeAssertion(stmt^.child^.sibling <> nil, 'Alternative parser sibling');
+			left := CombinateGrammarTerm(stmt^.child, gram);
+			right := CombinateGrammarTerm(stmt^.child^.sibling, gram);
+			result := AlternativeParsers(left, right);
+		end
+	else if stmt^.identifier = ASSGN_ID then
+		begin
+			readSize := stmt^.child^.stop - stmt^.child^.start;
+			tmpBuff := MemoryAllocate(readSize);
+			CursorBufferSeek(gram, stmt^.child^.start);
+			CursorBufferReadMultiple(gram, tmpBuff, readSize);
+
+			right := CombinateGrammarTerm(stmt^.child^.sibling, gram);
+			id := GetIdentifier(tmpBuff, readSize);
+			id^.boundParser := right;
+			result := right;
 		end
 	else
 		begin
@@ -86,11 +161,12 @@ begin
 
 	MemoryCursorBuffer(@cmd, BootstrapBytecode, BOOTSTRAP_PARSER_SIZE, BUFFER_MODE_READ);
 	InitParserInterpreter(@bootstrapInterp, grammar, @cmd);
+	ResetIdentifiers();
 
 	parser := nil;
 	while (not CursorBufferEnd(grammar)) do
 		begin
-			MakeAssertion(Parse(@bootstrapInterp, @res), 'Invalid parse grammar');
+			MakeAssertion(Parse(@bootstrapInterp, @res), 'Grammar syntax error');
 			parser := CombinateGrammarTerm(res, grammar);
 		end;
 
@@ -103,6 +179,8 @@ var
 	charParser, parserParser, wsParser : pParser;
 	rangeParser, groupPred, groupParser, termParser : pParser;
 	postfixParser, postfixOrTermP, seqParser, exprParser : pParser;
+	seqOrPostfixP, altParser, altOrSeqP, identifierP : pParser;
+ 	assignP, assignOrExprP, stmtP : pParser;
 initialization
 	{ wsParser = \x00 - \x20 }
 	wsParser := KleeneParser(CharacterRangeParser(char(0), char(32)));
@@ -132,6 +210,21 @@ initialization
 				CharacterRangeParser(char(0), char(255)),
 				CharacterParser(char(39)))));
 
+	{ identifierP = ((a-z) | (A-Z) | '_') + (((a-z) | (A-Z) | '_')*) }
+	identifierP := ResultGeneratingParser(
+		SequenceParsers(	
+			AlternativeParsers(
+				AlternativeParsers(
+					CharacterRangeParser('a', 'z'),
+					CharacterRangeParser('A', 'Z')),
+				CharacterParser('_')),
+			KleeneParser(
+				AlternativeParsers(
+					AlternativeParsers(
+						CharacterRangeParser('a', 'z'),
+						CharacterRangeParser('A', 'Z')),
+					CharacterParser('_')))));
+
 	{ charParser = quoteChParser | hexChParser }
 	charParser := AlternativeParsers(
 		quoteChParser,
@@ -157,7 +250,7 @@ initialization
 	termParser := SequenceParsers(wsParser,
 		AlternativeParsers(
 			AlternativeParsers(rangeParser, charParser),
-			groupParser));
+			AlternativeParsers(identifierP, groupParser)));
 
 	{ postfixParser = termParser * }
 	postfixParser := ResultGeneratingParser(
@@ -177,11 +270,40 @@ initialization
 					wsParser, 
 					CharacterParser('+'))),
 			postfixOrTermP));
+	seqOrPostfixP := AlternativeParsers(seqParser, postfixOrTermP);
 
-	exprParser := AlternativeParsers(seqParser, postfixOrTermP);
+	{ altParser = seqOrPostfixP + wsParser + '/' + seqOrPostfixP }
+	altParser := ResultGeneratingParser(
+		SequenceParsers(
+			SequenceParsers(
+				seqOrPostfixP,
+				SequenceParsers(
+					wsParser, 
+					CharacterParser('/'))),
+			seqOrPostfixP));
+	altOrSeqP := AlternativeParsers(altParser, seqOrPostfixP);
+
+	exprParser := altOrSeqP;
 	groupPred := BackpatchRight(groupPred, exprParser);
 
-	parserParser := exprParser;
+	{ assignP = identifierP + wsParser + '=' + exprParser }
+	assignP := ResultGeneratingParser(
+		SequenceParsers(
+			SequenceParsers(
+				identifierP, 
+				wsParser),
+			SequenceParsers(
+				CharacterParser('='), 
+				exprParser)));
+	assignOrExprP := AlternativeParsers(assignP, exprParser);
+
+	stmtP := SequenceParsers(
+		assignOrExprP, 
+		SequenceParsers(
+			wsParser, 
+			CharacterParser(';')));
+
+	parserParser := stmtP;
 
 	MemoryCursorBuffer(@cmd, BootstrapBytecode, BOOTSTRAP_PARSER_SIZE, BUFFER_MODE_WRITE);
 	CompileParser(@cmd, parserParser);
@@ -189,11 +311,32 @@ initialization
 	HEX_CH_ID := hexChParser^.identifier;
 	LIT_CH_ID := quoteChParser^.identifier;
 	RANGE_CH_ID := rangeParser^.identifier;
+	IDENT_ID := identifierP^.identifier;
 	POST_ID := postfixParser^.identifier;
 	SEQ_ID := seqParser^.identifier;
+	ALT_ID := altParser^.identifier;
+	ASSGN_ID := assignP^.identifier;
 
 	write('Bootstrap parser size: ');
 	writeln(CursorBufferPosition(@cmd));
+
+	write('HEX_CH_ID: ');
+	writeln(HEX_CH_ID);
+	write('LIT_CH_ID: ');
+	writeln(LIT_CH_ID);
+	write('RANGE_CH_ID: ');
+	writeln(RANGE_CH_ID);
+	write('IDENT_ID: ');
+	writeln(IDENT_ID);
+	write('POST_ID: ');
+	writeln(POST_ID);
+	write('SEQ_ID: ');
+	writeln(SEQ_ID);
+	write('ALT_ID: ');
+	writeln(ALT_ID);
+	write('ASSGN_ID: ');
+	writeln(ASSGN_ID);
+
 	CursorBufferClose(@cmd);
 	ResetParserInternPool();
 end.
