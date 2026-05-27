@@ -18,6 +18,7 @@ begin
     PARSER_ALTERNATIVE: exit (ParserInstructionLength(PARSE_OP_ALT));
     PARSER_KLEENE: exit (ParserInstructionLength(PARSE_OP_KLEENE));
     PARSER_RESULT: exit (ParserInstructionLength(PARSE_OP_RES));
+    PARSER_PATCHED: exit (0);
   else
     MakeAssertion(false, 'Unknown parser type, length');
   end;
@@ -42,7 +43,11 @@ begin
       ParserMarkAllChildrenOf(p^.left);
       ParserMarkAllChildrenOf(p^.right);
     end
-  else if (p^.kind = PARSER_RESULT) or (p^.kind = PARSER_KLEENE) then
+  else if 
+    (p^.kind = PARSER_RESULT) or 
+    (p^.kind = PARSER_KLEENE) or
+    (p^.kind = PARSER_PATCHED)
+  then
     begin
       ParserMarkAllChildrenOf(p^.child)
     end
@@ -105,6 +110,10 @@ begin
     begin
       loc := p^.child^.identifier;
       WriteParseOpResult(cb, loc);
+      DoCompile(cb, p^.child);
+    end
+  else if p^.kind = PARSER_PATCHED then
+    begin
       DoCompile(cb, p^.child);
     end
   else

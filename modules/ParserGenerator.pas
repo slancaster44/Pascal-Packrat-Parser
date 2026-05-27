@@ -9,15 +9,25 @@ uses Assertion, Memory, StrConv, Str32,
 	ParserCombinators, ParserCompiler, ParserInterpreter;
 
 type
-		rIdentifier = record
-			next : ^rIdentifier;
-			sigName : acRawStr;
-			boundParser : pParser;
-		end;
-		pIdentifier = ^rIdentifier;
+	ePatchKind = (PATCH_LEFT, PATCH_RIGHT, PATCH_CHILD, PATCH_ERROR);
+
+	rPatch = record
+		next : ^rPatch;
+		kind : ePatchKind;
+		patchee : pParser;
+	end;
+	pPatch = ^rPatch;
+
+	rIdentifier = record
+		next : ^rIdentifier;
+		sigName : acRawStr;
+		boundParser : pParser;
+		patches : pPatch;
+	end;
+	pIdentifier = ^rIdentifier;
 
 const
-	BOOTSTRAP_PARSER_SIZE = 300;
+	BOOTSTRAP_PARSER_SIZE = 272;
 var
 	BootstrapBytecode : array [0..BOOTSTRAP_PARSER_SIZE] of char;
 	HEX_CH_ID, LIT_CH_ID, RANGE_CH_ID, POST_ID : cardinal;
@@ -33,8 +43,25 @@ begin
 		begin
 			toFree := idents;
 			idents := idents^.next;
-			MemoryDeallocate(idents);
+			MemoryDeallocate(toFree);
 		end;
+end;
+
+procedure ApplyPatches(patch : pPatch; new_child : pParser);
+begin
+	if patch = nil then exit;
+
+	if (patch^.kind = PATCH_LEFT) then
+		PatchLeft(patch^.patchee, new_child)
+	else if (patch^.kind = PATCH_RIGHT) then
+		PatchRight(patch^.patchee, new_child)
+	else if (patch^.kind = PATCH_CHILD) then
+		PatchChild(patch^.patchee, new_child)
+	else
+		MakeAssertion(false, 'Unknown patch type');
+
+	ApplyPatches(patch^.next, new_child);
+	MemoryDeallocate(patch);
 end;
 
 function GetIdentifier(fullName : pChar; fullLen : cardinal) : pIdentifier;
@@ -55,17 +82,20 @@ begin
 	curIdent^.next := idents;
 	curIdent^.sigName := sigName;
 	curIdent^.boundParser := nil;
+	curIdent^.patches := nil;
 
 	idents := curIdent;
 	exit (curIdent);
 end;
 
-function CombinateGrammarTerm(stmt : pParseResult; gram : pCursorBuffer) : pParser;
+function CombinateGrammarTerm
+	(stmt : pParseResult; gram : pCursorBuffer; parent : pParser; pkind : ePatchKind) : pParser;
 var
 	startGramPos, readSize : cardinal;
 	tmpBuff : pChar;
 	left, right, result : pParser;
 	id : pIdentifier;
+	patch : pPatch;
 begin
 	startGramPos := CursorBufferPosition(gram);
 	tmpBuff := nil;
@@ -96,36 +126,50 @@ begin
 			CursorBufferSeek(gram, stmt^.start);
 			CursorBufferReadMultiple(gram, tmpBuff, readSize);
 			id := GetIdentifier(tmpBuff, readSize);
+			if id^.boundParser = nil then
+				begin
+					patch := MemoryAllocate(sizeof(rPatch));
+					patch^.next := id^.patches;
+					patch^.patchee := parent;
+					patch^.kind := pkind;
+					id^.patches := patch;
+				end;
+
 			result := id^.boundParser;
 		end
 	else if stmt^.identifier = POST_ID then
 		begin
-			left := CombinateGrammarTerm(stmt^.child, gram);
-			result := KleeneParser(left);
+			result := KleeneParser(nil);
+			left := CombinateGrammarTerm(stmt^.child, gram, result, PATCH_CHILD);
+			if left <> nil then PatchChild(result, left);
 		end
 	else if stmt^.identifier = RANGE_CH_ID then
 		begin
 			MakeAssertion(stmt^.child <> nil, 'Range parser, child');
 			MakeAssertion(stmt^.child^.sibling <> nil, 'Range parser sibling');
-			left := CombinateGrammarTerm(stmt^.child, gram);
-			right := CombinateGrammarTerm(stmt^.child^.sibling, gram);
+			left := CombinateGrammarTerm(stmt^.child, gram, nil, PATCH_ERROR);
+			right := CombinateGrammarTerm(stmt^.child^.sibling, gram, nil, PATCH_ERROR);
 			result := CharacterRangeParser(left^.match_char, right^.match_char);
 		end
 	else if stmt^.identifier = SEQ_ID then
 		begin
 			MakeAssertion(stmt^.child <> nil, 'SequenceParsers parser, child');
 			MakeAssertion(stmt^.child^.sibling <> nil, 'SequenceParsers parser sibling');
-			left := CombinateGrammarTerm(stmt^.child, gram);
-			right := CombinateGrammarTerm(stmt^.child^.sibling, gram);
-			result := SequenceParsers(left, right);
+			result := SequenceParsers(nil, nil);
+			left := CombinateGrammarTerm(stmt^.child, gram, result, PATCH_LEFT);
+			right := CombinateGrammarTerm(stmt^.child^.sibling, gram, result, PATCH_RIGHT);
+			if left <> nil then PatchLeft(result, left);
+			if right <> nil then PatchRight(result, right)
 		end
 	else if stmt^.identifier = ALT_ID then
 		begin
 			MakeAssertion(stmt^.child <> nil, 'Alternative parser, child');
 			MakeAssertion(stmt^.child^.sibling <> nil, 'Alternative parser sibling');
-			left := CombinateGrammarTerm(stmt^.child, gram);
-			right := CombinateGrammarTerm(stmt^.child^.sibling, gram);
-			result := AlternativeParsers(left, right);
+			result := AlternativeParsers(nil, nil);
+			left := CombinateGrammarTerm(stmt^.child, gram, result, PATCH_LEFT);
+			right := CombinateGrammarTerm(stmt^.child^.sibling, gram, result, PATCH_RIGHT);
+			if left <> nil then PatchLeft(result, left);
+			if right <> nil then PatchRight(result, right);
 		end
 	else if stmt^.identifier = ASSGN_ID then
 		begin
@@ -134,10 +178,12 @@ begin
 			CursorBufferSeek(gram, stmt^.child^.start);
 			CursorBufferReadMultiple(gram, tmpBuff, readSize);
 
-			right := CombinateGrammarTerm(stmt^.child^.sibling, gram);
+			result := ResultGeneratingParser(nil);
+			right := CombinateGrammarTerm(stmt^.child^.sibling, gram, result, PATCH_CHILD);
 			id := GetIdentifier(tmpBuff, readSize);
-			id^.boundParser := right;
-			result := right;
+			id^.boundParser := result;
+		 	if right <> nil then PatchChild(result, right); 
+			ApplyPatches(id^.patches, result);
 		end
 	else
 		begin
@@ -167,7 +213,7 @@ begin
 	while (not CursorBufferEnd(grammar)) do
 		begin
 			MakeAssertion(Parse(@bootstrapInterp, @res), 'Grammar syntax error');
-			parser := CombinateGrammarTerm(res, grammar);
+			parser := CombinateGrammarTerm(res, grammar, nil, PATCH_ERROR);
 		end;
 
 	if parser <> nil then CompileParser(output, parser);
@@ -269,8 +315,9 @@ initialization
 				SequenceParsers(
 					wsParser, 
 					CharacterParser('+'))),
-			postfixOrTermP));
+			nil));
 	seqOrPostfixP := AlternativeParsers(seqParser, postfixOrTermP);
+	PatchRight(seqParser^.child, seqOrPostfixP);
 
 	{ altParser = seqOrPostfixP + wsParser + '/' + seqOrPostfixP }
 	altParser := ResultGeneratingParser(
@@ -280,11 +327,12 @@ initialization
 				SequenceParsers(
 					wsParser, 
 					CharacterParser('/'))),
-			seqOrPostfixP));
+			nil));
 	altOrSeqP := AlternativeParsers(altParser, seqOrPostfixP);
+	PatchRight(altParser^.child, altOrSeqP);
 
 	exprParser := altOrSeqP;
-	groupPred := BackpatchRight(groupPred, exprParser);
+	PatchRight(groupPred, exprParser);
 
 	{ assignP = identifierP + wsParser + '=' + exprParser }
 	assignP := ResultGeneratingParser(

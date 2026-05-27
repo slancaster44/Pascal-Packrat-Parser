@@ -21,6 +21,8 @@ begin
     for i := 0 to trueLen-1 do
       sigName[i] := freeS[i];
   sigName[trueLen] := char(0);
+
+  exit (sigName);
 end;
 
 end.

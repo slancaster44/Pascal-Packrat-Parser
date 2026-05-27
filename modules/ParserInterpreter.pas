@@ -16,7 +16,7 @@ type
     next : ^rParseMemo;
     inpLoc, cmdLoc : cardinal;
     inpConsumedLocation : cardinal;
-    output : boolean;
+    output, isFinalized : boolean;
     resOut : pParseResult;
   end;
   pParseMemo = ^rParseMemo;
@@ -75,6 +75,11 @@ begin
   memo := pParseMemo(AllocatorAllocate(@(p^.parseArena), sizeof(rParseMemo)));
   memo^.inpLoc := CursorBufferPosition(p^.inp);
   memo^.cmdLoc := CursorBufferPosition(p^.cmd);
+  memo^.isFinalized := false;
+  memo^.resOut := nil;
+  memo^.output := false;
+  memo^.next := p^.memos;
+  p^.memos := memo;
   exit (memo);
 end;
 
@@ -82,10 +87,9 @@ procedure FinalizeMemo
   (p : pParserInterpreter; m : pParseMemo; res : boolean; pres : pParseResult);
 begin
   m^.inpConsumedLocation := CursorBufferPosition(p^.inp);
+  m^.isFinalized := true;
   m^.output := res;
   m^.resOut := pres;
-  m^.next := p^.memos;
-  p^.memos := m;
 end;
 
 function ParserEx(p : pParserInterpreter; parseRes : ppParseResult) : boolean;
@@ -102,6 +106,7 @@ begin
     begin
       parseRes^ := memo^.resOut;
       CursorBufferSeek(p^.inp, memo^.inpConsumedLocation);
+      MakeAssertion(memo^.isFinalized, 'Infinite parser recursion');
       exit (memo^.output);
     end;
   memo := NewMemo(p);

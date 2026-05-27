@@ -8,7 +8,8 @@ type
     PARSER_SEQUENCE,      { Tests if two sub-parsers pass }
     PARSER_ALTERNATIVE,   { Returns the state of the first sub-parser to pass }
     PARSER_KLEENE,        { zero or more instances of the sub-expression }
-    PARSER_RESULT         { Generates a result, given the current state }
+    PARSER_RESULT,        { Generates a result, given the current state }
+    PARSER_PATCHED        { Wrapper parsers for patches }
   );
 
   rParser = record
@@ -22,9 +23,10 @@ type
       PARSER_MATCH : (match_char : char);
       PARSER_RANGE : (min_char, max_char : char);
       PARSER_SEQUENCE, PARSER_ALTERNATIVE : (left, right : ^rParser);
-      PARSER_KLEENE, PARSER_RESULT : (child : ^rParser);
+      PARSER_KLEENE, PARSER_RESULT, PARSER_PATCHED : (child : ^rParser);
   end;
   pParser = ^rParser;
+  ppParser = ^pParser;
 
 function IsParserValid(p : pParser) : boolean;
 function CharacterParser(character : char) : pParser;
@@ -33,9 +35,12 @@ function SequenceParsers(left, right : pParser) : pParser;
 function AlternativeParsers(left, right : pParser) : pParser;
 function KleeneParser(child : pParser) : pParser;
 function ResultGeneratingParser(child : pParser) : pParser;
-function BackpatchRight(parent, child: pParser) : pParser;
 function GetAllParsers() : pParser;
 procedure ResetParserInternPool();
+
+procedure PatchChild(parent, child : pParser);
+procedure PatchRight(parent, child : pParser);
+procedure PatchLeft(parent, child : pParser);
 
 implementation 
 
@@ -63,46 +68,51 @@ begin
   parserInternPool := nil;
 end;
 
-function _internParser(new_parser : rParser) : pParser;
-var
-  curParser : pParser;
-
+function _parsersMatch(p0, p1 : pParser) : boolean;
   function BothAre(kind : ParserKind) : boolean;
   begin
-    exit ((new_parser.kind = kind) and (curParser^.kind = kind));
+    exit ((p0^.kind = kind) and (p1^.kind = kind));
   end;
 
   function ChildrenMatch() : boolean;
   begin { 'nil' indicates a child rParser that will be added later }
-    exit (((new_parser.left <> nil) and (curParser^.left <> nil)) and
-      ((new_parser.right <> nil) and (curParser^.right <> nil)) and
-      (new_parser.right = curParser^.right) and 
-      (new_parser.left = curParser^.left));
+    exit (((p0^.left <> nil) and (p1^.left <> nil)) and
+      ((p0^.right <> nil) and (p1^.right <> nil)) and
+      (p0^.right = p1^.right) and 
+      (p0^.left = p1^.left));
   end;
+
+  function ChildMatches() : boolean;
+  begin
+    exit ((p0^.child <> nil) and (p1^.child <> nil) and
+      (p0^.child = p1^.child));
+  end;
+begin
+  exit ((BothAre(PARSER_MATCH) and
+    (p0^.match_char = p1^.match_char))
+      or
+        (BothAre(PARSER_RANGE) and
+          ((p0^.min_char) = (p1^.min_char)) and
+          ((p0^.max_char) = (p1^.max_char)))
+      or
+        (BothAre(PARSER_ALTERNATIVE) and ChildrenMatch())
+      or
+        (BothAre(PARSER_SEQUENCE) and ChildrenMatch())
+      or
+        ((BothAre(PARSER_RESULT)) and (ChildMatches()))
+      or
+        ((BothAre(PARSER_KLEENE)) and ChildMatches()));
+end;
+
+function _internParser(new_parser : rParser) : pParser;
+var
+  curParser : pParser;
 begin
   curParser := parserInternPool;
 
   while (curParser <> nil) do
     begin
-      if
-        (BothAre(PARSER_MATCH) and
-          (curParser^.match_char = new_parser.match_char))
-        or
-          (BothAre(PARSER_RANGE) and
-            ((curParser^.min_char) = (new_parser.min_char)) and
-            ((curParser^.max_char) = (new_parser.max_char)))
-        or
-          (BothAre(PARSER_ALTERNATIVE) and ChildrenMatch())
-        or
-          (BothAre(PARSER_SEQUENCE) and ChildrenMatch())
-        or
-          ((BothAre(PARSER_RESULT)) and
-            (curParser^.child = new_parser.child))
-        or
-          ((BothAre(PARSER_KLEENE)) and 
-            (curParser^.child = new_parser.child))
-      then exit (curParser);
-        
+      if _parsersMatch(curParser, @new_parser) then exit (curParser);
       curParser := curParser^.next;
     end;
 
@@ -112,28 +122,8 @@ begin
   curParser^.mark := false;
   curParser^.identifier := 0;
   parserInternPool := curParser;
+  _internParser := curParser;
   exit (curParser);
-end;
-
-procedure _replaceParser(old_parser, new_parser : pParser);
-var
-  curParser : pParser;
-begin
-  curParser := parserInternPool;
-
-  while (curParser <> nil) do
-    begin
-      if curParser^.next = old_parser then
-        curParser^.next := curParser^.next^.next;
-      if curParser^.left = old_parser then
-        curParser^.left := new_parser;
-      if curParser^.right = old_parser then
-        curParser^.right := new_parser; 
-
-      curParser := curParser^.next;
-    end;
-  
-  FreeMem(old_parser);
 end;
 
 function IsParserValid(p : pParser) : boolean;
@@ -189,8 +179,8 @@ function KleeneParser(child : pParser) : pParser;
 var
   new_parser : rParser;
 begin
-  MakeAssertion(child <> nil, 'Child parser must not be nil');
-  MakeAssertion(IsParserValid(child), 'Child parser must be valid');
+  MakeAssertion(IsParserValid(child) or (child = nil), 
+    'Child parser must be valid');
 
   new_parser.kind := PARSER_KLEENE;
   new_parser.child := child;
@@ -200,13 +190,15 @@ end;
 function ResultGeneratingParser(child : pParser) : pParser;
 var
   new_parser : rParser;
+  intern_parser : pParser;
 begin
-  MakeAssertion(child <> nil, 'Child parser cannot be nil');
-  MakeAssertion(IsParserValid(child), 'Child must be valid parser');
+  MakeAssertion(IsParserValid(child) or (child = nil),
+    'Child must be valid parser');
 
   new_parser.kind := PARSER_RESULT;
   new_parser.child := child;
-  exit (_internParser(new_parser));
+  intern_parser := _internParser(new_parser);
+  exit (intern_parser);
 end;
 
 function AlternativeParsers(left, right : pParser) : pParser;
@@ -224,23 +216,86 @@ begin
   exit (_internParser(new_parser));
 end;
 
-function BackpatchRight(parent, child: pParser) : pParser;
+procedure PatchChild(parent, child : pParser);
 var
   new_parser : rParser;
-  new_interned_parser : pParser;
+  new_interned : pParser;
 begin
-  MakeAssertion(child <> nil, 'New right child nil for backpatch');
-  MakeAssertion(IsParserValid(child), 'Cannot backpatch with invalid parser');
-  MakeAssertion((parent^.kind = PARSER_ALTERNATIVE) or
-    (parent^.kind = PARSER_SEQUENCE), 'Cannot backpatch parser');
-  MakeAssertion(parent^.right = nil, 'Right child not nil for backpatch');
+  MakeAssertion(parent <> nil, 'Cannot patch nil child');
+  MakeAssertion(child <> nil, 'Cannot patch with nil child');
 
-  new_parser := parent^;
-  new_parser.right := child;
-  new_interned_parser := _internParser(new_parser);
-  _replaceParser(parent, new_interned_parser);
+  if parent^.kind = PARSER_PATCHED then
+    PatchChild(parent^.child, child)
+  else if 
+    (parent^.kind = PARSER_RESULT) or
+    (parent^.kind = PARSER_KLEENE)
+  then
+    begin
+      MakeAssertion(parent^.child = nil, 'Cannot patch non-nil child');
+      
+      new_parser := parent^;
+      new_parser.child := child;
+      new_interned := _internParser(new_parser);
 
-  exit(new_interned_parser);
+      parent^.kind := PARSER_PATCHED;
+      parent^.child := new_interned;
+    end
+  else
+    MakeAssertion(false, 'Invalid parser for patch child');
+end;
+
+procedure PatchLeft(parent, child : pParser);
+var
+  new_parser : rParser;
+  new_interned : pParser;
+begin
+  MakeAssertion(parent <> nil, 'Cannot patch nil child');
+  MakeAssertion(child <> nil, 'Cannot patch with nil child');
+
+  if parent^.kind = PARSER_PATCHED then
+    PatchLeft(parent^.child, child)
+  else if 
+    (parent^.kind = PARSER_SEQUENCE) or
+    (parent^.kind = PARSER_ALTERNATIVE)
+  then
+    begin
+      MakeAssertion(parent^.left = nil, 'Cannot patch non-nil child');
+      new_parser := parent^;
+      new_parser.left := child;
+      new_interned := _internParser(new_parser);
+
+      parent^.kind := PARSER_PATCHED;
+      parent^.child := new_interned;
+    end
+  else
+    MakeAssertion(false, 'Invalid parser for patch left');
+end;
+
+procedure PatchRight(parent, child : pParser);
+var
+  new_parser : rParser;
+  new_interned : pParser;
+begin
+  MakeAssertion(parent <> nil, 'Cannot patch nil child');
+  MakeAssertion(child <> nil, 'Cannot patch with nil child');
+
+  if parent^.kind = PARSER_PATCHED then
+    PatchRight(parent^.child, child)
+  else if 
+    (parent^.kind = PARSER_SEQUENCE) or
+    (parent^.kind = PARSER_ALTERNATIVE)
+  then
+    begin
+      MakeAssertion(parent^.right = nil, 'Cannot patch non-nil child');
+      new_parser := parent^;
+      new_parser.right := child;
+      new_interned := _internParser(new_parser);
+
+      parent^.kind := PARSER_PATCHED;
+      parent^.child := new_interned;
+    end
+  else
+    MakeAssertion(false, 'Invalid parser for patch right');
 end;
 
 end.

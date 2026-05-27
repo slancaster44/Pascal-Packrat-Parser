@@ -2,3 +2,4 @@
 - Compression by explicit match parser?
 - Test memory backed files
 - Print parse tree
+- 8-bit branches for greater compression?
