@@ -106,7 +106,6 @@ begin
 			i := sizeof(acRawStr)-1;
 			while d > 0 do
 				begin
-					writeln(i);
 					buf[i] := char(cardinal('0') + (d mod 10));
 					d := d div 10;
 					i := i-1;
@@ -404,7 +403,11 @@ initialization
 			wsParser, 
 			CharacterParser(';')));
 
-	parserParser := AlternativeParsers(stmtP, wsParser);
+	parserParser := AlternativeParsers(
+		stmtP, 
+		SequenceParsers(
+			CharacterRangeParser(char(0), char(32)),
+			wsParser));
 
 	MemoryCursorBuffer(@cmd, BootstrapBytecode, BOOTSTRAP_PARSER_SIZE, BUFFER_MODE_WRITE);
 	CompileParser(@cmd, parserParser);

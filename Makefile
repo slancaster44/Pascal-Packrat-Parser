@@ -2,6 +2,9 @@
 generate: all
 	fpc -gl -O- -g ./Generate.pas -Fu./bin -FE./bin
 
+printer: all
+	fpc -gl -O- -g ./Printer.pas -Fu./bin -FE./bin
+
 test: all
 	fpc -gl -O- -g ./Test.pas -Fu./bin -FE./bin
 	./bin/Test
@@ -64,4 +67,10 @@ stroke_ego:
 	find . -name "*.pas" | xargs cat | wc -l
 
 clean:
-	rm -f `find . -type f ! -name "*.pas" ! -name "Makefile" ! -name "*.inc" ! -name "TODO" ! -path "*.git*"`
+	rm -f `find . -type f \
+		! -name "*.pas" \
+		! -name "Makefile" \
+		! -name "*.inc" \
+		! -name "TODO" \
+		! -path "*.git*" \
+		! -path "README.md"`
