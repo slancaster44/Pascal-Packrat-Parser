@@ -69,8 +69,8 @@ stroke_ego:
 clean:
 	rm -f `find . -type f \
 		! -name "*.pas" \
+		! -path "*.md" \
 		! -name "Makefile" \
 		! -name "*.inc" \
 		! -name "TODO" \
-		! -path "*.git*" \
-		! -path "README.md"`
+		! -path "*.git*"`
