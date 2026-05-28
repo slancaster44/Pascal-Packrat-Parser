@@ -21,6 +21,7 @@ procedure MemoryCursorBuffer(
 function CursorBufferRead(cb : pCursorBuffer) : char;
 procedure CursorBufferReadMultiple(cb : pCursorBuffer; buf : pChar; bufsize : cardinal);
 procedure CursorBufferWrite(cb : pCursorBuffer; c : char);
+procedure CursorBufferWriteMultiple(cb : pCursorBuffer; buf : acRawStr);
 procedure CursorBufferSeek(cb : pCursorBuffer; pos : cardinal);
 function CursorBufferPosition(cb : pCursorBuffer) : cardinal;
 function CursorBufferLength(cb : pCursorBuffer) : cardinal;
@@ -95,6 +96,18 @@ begin
       MakeAssertion(cb^.cursor < cb^.length, 'Write out of bounds');
       cb^.content[cb^.cursor] := c;
       cb^.cursor := cb^.cursor + 1;
+    end;
+end;
+
+procedure CursorBufferWriteMultiple(cb : pCursorBuffer; buf : acRawStr);
+var
+  i : cardinal;
+begin
+  i := 0;
+  while (buf[i] <> char(0)) and (i < sizeof(acRawStr)) do
+    begin
+      CursorBufferWrite(cb, buf[i]);
+      i := i + 1;
     end;
 end;
 

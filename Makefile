@@ -1,4 +1,6 @@
 
+generate: all
+	fpc -gl -O- -g ./Generate.pas -Fu./bin -FE./bin
 
 test: all
 	fpc -gl -O- -g ./Test.pas -Fu./bin -FE./bin

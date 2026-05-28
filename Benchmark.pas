@@ -14,7 +14,7 @@ var
 begin
   digit_parser := SequenceParsers(CharacterRangeParser('0', '9'), nil);
   number_parser := AlternativeParsers(digit_parser, CharacterRangeParser('0', '9'));
-  digit_parser := BackpatchRight(digit_parser, number_parser);
+  PatchRight(digit_parser, number_parser);
   number_parser := ResultGeneratingParser(number_parser);
 
   op_parser := AlternativeParsers(CharacterParser('+'), CharacterParser('-'));
@@ -23,7 +23,7 @@ begin
   tmp_parser := AlternativeParsers(expr_parser, number_parser);
 
   final_parser := ResultGeneratingParser(tmp_parser);
-  expr_parser := BackpatchRight(expr_parser, final_parser);
+  PatchRight(expr_parser, final_parser);
 
   DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_WRITE);
   CompileParser(@cmd, final_parser);

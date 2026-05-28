@@ -2,7 +2,7 @@ unit ParserGenerator;
 interface
 uses CursorBuffer;
 
-procedure GenerateParser(grammar, output : pCursorBuffer);
+procedure GenerateParser(grammar, output, idHdr : pCursorBuffer);
 
 implementation
 uses Assertion, Memory, StrConv, Str32,
@@ -27,7 +27,7 @@ type
 	pIdentifier = ^rIdentifier;
 
 const
-	BOOTSTRAP_PARSER_SIZE = 272;
+	BOOTSTRAP_PARSER_SIZE = 300;
 var
 	BootstrapBytecode : array [0..BOOTSTRAP_PARSER_SIZE] of char;
 	HEX_CH_ID, LIT_CH_ID, RANGE_CH_ID, POST_ID : cardinal;
@@ -88,8 +88,60 @@ begin
 	exit (curIdent);
 end;
 
-function CombinateGrammarTerm
-	(stmt : pParseResult; gram : pCursorBuffer; parent : pParser; pkind : ePatchKind) : pParser;
+procedure PrintIdent(cb : pCursorBuffer; id : pIdentifier);
+var
+	d, i : cardinal;
+	buf : acRawStr;
+begin
+	if id = nil then exit;
+	CursorBufferWriteMultiple(cb, '    PARSE_ID_');
+	CursorBufferWriteMultiple(cb, id^.sigName);
+	CursorBufferWriteMultiple(cb, ' = ');
+
+	d := id^.boundParser^.identifier;
+	if d = 0 then 
+		CursorBufferWrite(cb, '0')
+	else
+		begin
+			i := sizeof(acRawStr)-1;
+			while d > 0 do
+				begin
+					writeln(i);
+					buf[i] := char(cardinal('0') + (d mod 10));
+					d := d div 10;
+					i := i-1;
+				end;
+
+			for d := 0 to (sizeof(acRawStr)-i)-1 do
+				begin
+					CursorBufferWrite(cb, buf[i+d]);
+				end;
+		end;
+
+	CursorBufferWriteMultiple(cb, ';');
+	CursorBufferWrite(cb, char(10));
+	PrintIdent(cb, id^.next);
+end;
+
+procedure PrintIdents(cb : pCursorBuffer);
+begin
+	CursorBufferWriteMultiple(cb, 'unit ParserIdentifiers;');
+	CursorBufferWrite(cb, char(10));
+	CursorBufferWriteMultiple(cb, 'interface');
+	CursorBufferWrite(cb, char(10));
+	CursorBufferWriteMultiple(cb, 'const');
+	CursorBufferWrite(cb, char(10));
+	PrintIdent(cb, idents);
+	CursorBufferWriteMultiple(cb, 'implementation');
+	CursorBufferWrite(cb, char(10));
+	CursorBufferWriteMultiple(cb, 'end.');
+	CursorBufferWrite(cb, char(10));
+end;
+
+function CombinateGrammarTerm(stmt : pParseResult; 
+		gram : pCursorBuffer; 
+		parent : pParser; 
+		pkind : ePatchKind) : pParser;
 var
 	startGramPos, readSize : cardinal;
 	tmpBuff : pChar;
@@ -196,7 +248,7 @@ begin
 	exit (result);
 end;
 
-procedure GenerateParser(grammar, output : pCursorBuffer);
+procedure GenerateParser(grammar, output, idHdr : pCursorBuffer);
 var
 	bootstrapInterp : rParserInterpreter;
 	res : pParseResult;
@@ -213,10 +265,11 @@ begin
 	while (not CursorBufferEnd(grammar)) do
 		begin
 			MakeAssertion(Parse(@bootstrapInterp, @res), 'Grammar syntax error');
-			parser := CombinateGrammarTerm(res, grammar, nil, PATCH_ERROR);
+			parser := CombinateGrammarTerm(res, grammar,nil, PATCH_ERROR);
 		end;
 
 	if parser <> nil then CompileParser(output, parser);
+	PrintIdents(idHdr);
 	CursorBufferClose(@cmd);
 end;
 
@@ -351,7 +404,7 @@ initialization
 			wsParser, 
 			CharacterParser(';')));
 
-	parserParser := stmtP;
+	parserParser := AlternativeParsers(stmtP, wsParser);
 
 	MemoryCursorBuffer(@cmd, BootstrapBytecode, BOOTSTRAP_PARSER_SIZE, BUFFER_MODE_WRITE);
 	CompileParser(@cmd, parserParser);
@@ -365,25 +418,25 @@ initialization
 	ALT_ID := altParser^.identifier;
 	ASSGN_ID := assignP^.identifier;
 
-	write('Bootstrap parser size: ');
-	writeln(CursorBufferPosition(@cmd));
+	// write('Bootstrap parser size: ');
+	// writeln(CursorBufferPosition(@cmd));
 
-	write('HEX_CH_ID: ');
-	writeln(HEX_CH_ID);
-	write('LIT_CH_ID: ');
-	writeln(LIT_CH_ID);
-	write('RANGE_CH_ID: ');
-	writeln(RANGE_CH_ID);
-	write('IDENT_ID: ');
-	writeln(IDENT_ID);
-	write('POST_ID: ');
-	writeln(POST_ID);
-	write('SEQ_ID: ');
-	writeln(SEQ_ID);
-	write('ALT_ID: ');
-	writeln(ALT_ID);
-	write('ASSGN_ID: ');
-	writeln(ASSGN_ID);
+	// write('HEX_CH_ID: ');
+	// writeln(HEX_CH_ID);
+	// write('LIT_CH_ID: ');
+	// writeln(LIT_CH_ID);
+	// write('RANGE_CH_ID: ');
+	// writeln(RANGE_CH_ID);
+	// write('IDENT_ID: ');
+	// writeln(IDENT_ID);
+	// write('POST_ID: ');
+	// writeln(POST_ID);
+	// write('SEQ_ID: ');
+	// writeln(SEQ_ID);
+	// write('ALT_ID: ');
+	// writeln(ALT_ID);
+	// write('ASSGN_ID: ');
+	// writeln(ASSGN_ID);
 
 	CursorBufferClose(@cmd);
 	ResetParserInternPool();

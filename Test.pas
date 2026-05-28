@@ -687,7 +687,7 @@ end;
 
 procedure TestCharacterGenerator();
 var
-  testGrammar, gramCmd, inp : rCursorBuffer;
+  testGrammar, gramCmd, inp, idHdr : rCursorBuffer;
   pi : rParserInterpreter;
   res : pParseResult;
 begin
@@ -700,9 +700,10 @@ begin
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
   DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  DiskCursorBuffer(@idHdr, 'test.pas', BUFFER_MODE_WRITE);
 
-  GenerateParser(@testGrammar, @gramCmd);
-
+  GenerateParser(@testGrammar, @gramCmd, @idHdr);
+  CursorBufferClose(@idHdr);
   CursorBufferClose(@testGrammar);
   CursorBufferClose(@gramCmd);
 
@@ -742,9 +743,11 @@ begin
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
   DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  DiskCursorBuffer(@idHdr, 'test.pas', BUFFER_MODE_WRITE);
 
-  GenerateParser(@testGrammar, @gramCmd);
+  GenerateParser(@testGrammar, @gramCmd, @idHdr);
 
+  CursorBufferClose(@idHdr);
   CursorBufferClose(@testGrammar);
   CursorBufferClose(@gramCmd);
 
@@ -777,7 +780,7 @@ end;
 
 procedure TestCharacterRangeGenerator();
 var
-  testGrammar, gramCmd, inp : rCursorBuffer;
+  testGrammar, gramCmd, inp, idHdr : rCursorBuffer;
   pi : rParserInterpreter;
   res : pParseResult;
 begin
@@ -796,9 +799,11 @@ begin
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
   DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  DiskCursorBuffer(@idHdr, 'test.pas', BUFFER_MODE_WRITE);
 
-  GenerateParser(@testGrammar, @gramCmd);
+  GenerateParser(@testGrammar, @gramCmd, @idHdr);
 
+  CursorBufferClose(@idHdr);
   CursorBufferClose(@testGrammar);
   CursorBufferClose(@gramCmd);
 
@@ -831,7 +836,7 @@ end;
 
 procedure TestPostfixGenerator();
 var
-  testGrammar, gramCmd, inp : rCursorBuffer;
+  testGrammar, gramCmd, inp, idHdr : rCursorBuffer;
   pi : rParserInterpreter;
   res : pParseResult;
 begin
@@ -846,9 +851,11 @@ begin
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
   DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  DiskCursorBuffer(@idHdr, 'test.pas', BUFFER_MODE_WRITE);
 
-  GenerateParser(@testGrammar, @gramCmd);
+  GenerateParser(@testGrammar, @gramCmd, @idHdr);
 
+  CursorBufferClose(@idHdr);
   CursorBufferClose(@testGrammar);
   CursorBufferClose(@gramCmd);
 
@@ -885,7 +892,7 @@ end;
 
 procedure TestSequenceGenerator();
 var
-  testGrammar, gramCmd, inp : rCursorBuffer;
+  testGrammar, gramCmd, inp, idHdr : rCursorBuffer;
   pi : rParserInterpreter;
   res : pParseResult;
 begin
@@ -916,9 +923,11 @@ begin
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
   DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  DiskCursorBuffer(@idHdr, 'test.pas', BUFFER_MODE_WRITE);
 
-  GenerateParser(@testGrammar, @gramCmd);
+  GenerateParser(@testGrammar, @gramCmd, @idHdr);
 
+  CursorBufferClose(@idHdr);
   CursorBufferClose(@testGrammar);
   CursorBufferClose(@gramCmd);
 
@@ -952,7 +961,7 @@ end;
 
 procedure TestAltGenerators();
 var
-  testGrammar, gramCmd, inp : rCursorBuffer;
+  testGrammar, gramCmd, inp, idHdr : rCursorBuffer;
   pi : rParserInterpreter;
   res : pParseResult;
 begin
@@ -989,9 +998,11 @@ begin
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
   DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  DiskCursorBuffer(@idHdr, 'test.pas', BUFFER_MODE_WRITE);
 
-  GenerateParser(@testGrammar, @gramCmd);
+  GenerateParser(@testGrammar, @gramCmd, @idHdr);
 
+  CursorBufferClose(@idHdr);
   CursorBufferClose(@testGrammar);
   CursorBufferClose(@gramCmd);
 
@@ -1029,7 +1040,7 @@ end;
 
 procedure TestAssignment();
 var
-  testGrammar, gramCmd, inp : rCursorBuffer;
+  testGrammar, gramCmd, inp, idHdr : rCursorBuffer;
   pi : rParserInterpreter;
   res : pParseResult;
 begin
@@ -1056,9 +1067,11 @@ begin
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
   DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  DiskCursorBuffer(@idHdr, 'test.pas', BUFFER_MODE_WRITE);
 
-  GenerateParser(@testGrammar, @gramCmd);
+  GenerateParser(@testGrammar, @gramCmd, @idHdr);
 
+  CursorBufferClose(@idHdr);
   CursorBufferClose(@testGrammar);
   CursorBufferClose(@gramCmd);
 
@@ -1129,7 +1142,7 @@ end;
 
 procedure TestBackPatchIndirect();
 var
-  testGrammar, gramCmd, inp : rCursorBuffer;
+  testGrammar, gramCmd, inp, idHdr : rCursorBuffer;
   pi : rParserInterpreter;
   res : pParseResult;
 begin
@@ -1160,9 +1173,11 @@ begin
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
   DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  DiskCursorBuffer(@idHdr, 'test.pas', BUFFER_MODE_WRITE);
 
-  GenerateParser(@testGrammar, @gramCmd);
+  GenerateParser(@testGrammar, @gramCmd, @idHdr);
 
+  CursorBufferClose(@idHdr);
   CursorBufferClose(@testGrammar);
   CursorBufferClose(@gramCmd);
 
@@ -1216,9 +1231,11 @@ begin
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
   DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  DiskCursorBuffer(@idHdr, 'test.pas', BUFFER_MODE_WRITE);
 
-  GenerateParser(@testGrammar, @gramCmd);
+  GenerateParser(@testGrammar, @gramCmd, @idHdr);
 
+  CursorBufferClose(@idHdr);
   CursorBufferClose(@testGrammar);
   CursorBufferClose(@gramCmd);
 
@@ -1274,9 +1291,11 @@ begin
 
   DiskCursorBuffer(@testGrammar, 'test_grammar.txt', BUFFER_MODE_READ);
   DiskCursorBuffer(@gramCmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  DiskCursorBuffer(@idHdr, 'test.pas', BUFFER_MODE_WRITE);
 
-  GenerateParser(@testGrammar, @gramCmd);
-
+  GenerateParser(@testGrammar, @gramCmd, @idHdr);
+  
+  CursorBufferClose(@idHdr);
   CursorBufferClose(@testGrammar);
   CursorBufferClose(@gramCmd);
 
