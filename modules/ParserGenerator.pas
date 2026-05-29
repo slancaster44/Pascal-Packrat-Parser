@@ -111,13 +111,13 @@ begin
 					i := i-1;
 				end;
 
-			for d := 0 to (sizeof(acRawStr)-i)-1 do
+			for d := 1 to (sizeof(acRawStr)-i)-1 do
 				begin
 					CursorBufferWrite(cb, buf[i+d]);
 				end;
 		end;
 
-	CursorBufferWriteMultiple(cb, ';');
+	CursorBufferWrite(cb, ';');
 	CursorBufferWrite(cb, char(10));
 	PrintIdent(cb, id^.next);
 end;
