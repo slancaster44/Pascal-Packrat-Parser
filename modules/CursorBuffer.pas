@@ -19,7 +19,8 @@ procedure DiskCursorBuffer(cb : pCursorBuffer; fname : acRawStr; bm : BufferMode
 procedure MemoryCursorBuffer(
   cb : pCursorBuffer; mem : pChar; length : cardinal; mode : BufferMode);
 function CursorBufferRead(cb : pCursorBuffer) : char;
-procedure CursorBufferReadMultiple(cb : pCursorBuffer; buf : pChar; bufsize : cardinal);
+function CursorBufferReadMultiple
+  (cb : pCursorBuffer; bufsize : cardinal) : acRawStr;
 procedure CursorBufferWrite(cb : pCursorBuffer; c : char);
 procedure WriteHexAscii(cb : pCursorBuffer; c : char);
 procedure CursorBufferWriteMultiple(cb : pCursorBuffer; buf : acRawStr);
@@ -74,15 +75,22 @@ begin
   exit(output);
 end;
 
-procedure CursorBufferReadMultiple(cb : pCursorBuffer; buf : pChar; bufsize : cardinal);
+function CursorBufferReadMultiple
+  (cb : pCursorBuffer; bufsize : cardinal) : acRawStr;
 var
+  buf : acRawStr;
   i : cardinal;
 begin
+  MakeAssertion(bufsize <= sizeof(buf), 'Requested size too large for acRawStr');
+
   if bufsize <> 0 then
-    for i := 0 to bufsize-1 do
-      begin
-        buf[i] := CursorBufferRead(cb);
-      end;
+    for i := 0 to sizeof(acRawStr)-1 do
+      if i < bufsize then 
+        buf[i] := CursorBufferRead(cb)
+      else
+        buf[i] := char(0);
+        
+  exit (buf);
 end;
 
 procedure CursorBufferWrite(cb : pCursorBuffer; c : char);

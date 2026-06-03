@@ -19,7 +19,6 @@ bench: all
 all: \
 	str32 \
 	assertion \
-	strconv \
 	memory \
 	cursor_buffer \
 	char_manip \
@@ -59,9 +58,6 @@ memory:
 
 assertion: 
 	fpc -gl -O- -g ./modules/Assertion.pas -Fu./bin -FE./bin
-
-strconv:
-	fpc -gl -O- -g ./modules/StrConv.pas -Fu./bin -FE./bin
 
 str32: 
 	fpc -gl -O- -g ./modules/Str32.pas -FE./bin

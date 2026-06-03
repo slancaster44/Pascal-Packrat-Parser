@@ -64,13 +64,10 @@ begin
 	MemoryDeallocate(patch);
 end;
 
-function GetIdentifier(fullName : pChar; fullLen : cardinal) : pIdentifier;
-var
-	sigName : acRawStr;
+function GetIdentifier(sigName : acRawStr; fullLen : cardinal) : pIdentifier;
+var	
 	curIdent : pIdentifier;
 begin
-	sigName := FreeStrToRawStr(fullName, fullLen);
-
 	curIdent := idents;
 	while curIdent <> nil do
 		begin
@@ -137,19 +134,19 @@ begin
 	CursorBufferWrite(cb, char(10));
 end;
 
+var
+	tmpBuff : acRawStr; { Usage not re-entrant, but saves stack memory }
 function CombinateGrammarTerm(stmt : pParseResult; 
 		gram : pCursorBuffer; 
 		parent : pParser; 
 		pkind : ePatchKind) : pParser;
 var
 	startGramPos, readSize : cardinal;
-	tmpBuff : pChar;
 	left, right, result : pParser;
 	id : pIdentifier;
 	patch : pPatch;
 begin
 	startGramPos := CursorBufferPosition(gram);
-	tmpBuff := nil;
 	result := nil;
 
 	if stmt = nil then
@@ -157,25 +154,28 @@ begin
 	else if stmt^.identifier = HEX_CH_ID then
 		begin
 			readSize := stmt^.stop - stmt^.start;
-			tmpBuff := MemoryAllocate(readSize);
 			CursorBufferSeek(gram, stmt^.start);
-			CursorBufferReadMultiple(gram, tmpBuff, readSize);
-			result := CharacterParser(char(StrToInt(@(tmpBuff[2]), 2, 16)));
+			tmpBuff := CursorBufferReadMultiple(gram, readSize);
+			tmpBuff[0] := tmpBuff[2]; { Scoot forward }
+			tmpBuff[1] := tmpBuff[3];
+			tmpBuff[2] := char(0);
+			tmpBuff[3] := char(0);
+			result := CharacterParser(char(StrToInt(tmpBuff, 16)));
 		end
 	else if stmt^.identifier = LIT_CH_ID then
 		begin
-			readSize := stmt^.stop - stmt^.start;
-			tmpBuff := MemoryAllocate(readSize);
+			readSize := stmt^.stop - stmt^.start;			
 			CursorBufferSeek(gram, stmt^.start);
-			CursorBufferReadMultiple(gram, tmpBuff, readSize);
+			tmpBuff := CursorBufferReadMultiple(gram, readSize);
 			result := CharacterParser(tmpBuff[1]);
 		end
 	else if stmt^.identifier = IDENT_ID then
 		begin
 			readSize := stmt^.stop - stmt^.start;
-			tmpBuff := MemoryAllocate(readSize);
+			tmpBuff[readSize] := char(0);
 			CursorBufferSeek(gram, stmt^.start);
-			CursorBufferReadMultiple(gram, tmpBuff, readSize);
+			tmpBuff := CursorBufferReadMultiple(gram, readSize);
+
 			id := GetIdentifier(tmpBuff, readSize);
 			if id^.boundParser = nil then
 				begin
@@ -224,13 +224,13 @@ begin
 		end
 	else if stmt^.identifier = ASSGN_ID then
 		begin
-			readSize := stmt^.child^.stop - stmt^.child^.start;
-			tmpBuff := MemoryAllocate(readSize);
-			CursorBufferSeek(gram, stmt^.child^.start);
-			CursorBufferReadMultiple(gram, tmpBuff, readSize);
-
 			result := ResultGeneratingParser(nil);
 			right := CombinateGrammarTerm(stmt^.child^.sibling, gram, result, PATCH_CHILD);
+
+			readSize := stmt^.child^.stop - stmt^.child^.start;
+			CursorBufferSeek(gram, stmt^.child^.start);
+			tmpBuff := CursorBufferReadMultiple(gram, readSize);
+
 			id := GetIdentifier(tmpBuff, readSize);
 			id^.boundParser := result;
 		 	if right <> nil then PatchChild(result, right); 
@@ -243,7 +243,6 @@ begin
 		end;
 
 	CursorBufferSeek(gram, startGramPos);
-	if tmpBuff <> nil then MemoryDeallocate(tmpBuff);
 	exit (result);
 end;
 

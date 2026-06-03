@@ -1,6 +1,7 @@
 program UnitTest;
 
-uses Memory, Assertion, CursorBuffer, CharManipulation, StrConv,
+uses Memory, Assertion, CursorBuffer, 
+  CharManipulation, StrConv, Str32,
   ParserCombinators, ParserBytecode, ParserCompiler, 
   ParserInterpreter, ParserGenerator, ResultWalker;
 
@@ -1370,13 +1371,13 @@ var
 function NumberHandle(res : pParseResult) : boolean;
 var
   len : cardinal;
-  buf : array[0..15] of char;
+  buf : acRawStr;
 begin
   len := res^.stop - res^.start;
   CursorBufferSeek(@inp, res^.start);
-  CursorBufferReadMultiple(@inp, buf, len);
+  buf := CursorBufferReadMultiple(@inp, len);
   
-  stack[sp] := StrToInt(buf, len, 10);
+  stack[sp] := StrToInt(buf, 10);
   sp := sp + 1;
   
   exit (true);
@@ -1392,6 +1393,7 @@ begin
     begin
       MakeAssertion(sp <> 1, 'Stack empty');
       CursorBufferSeek(@inp, res^.child^.stop);
+      op := CursorBufferRead(@inp);
       sp := sp - 1;
       if op = '+' then stack[sp-1] := stack[sp-1] + stack[sp];
       if op = '-' then stack[sp-1] := stack[sp-1] - stack[sp];
@@ -1453,8 +1455,7 @@ begin
   
   InitParserInterpreter(@pi, @inp, @cmd);
   MakeAssertion(Parse(@pi, @res), 'Walker, parse expr');
-  // PrintParseResult(res, 0);
-  WalkResult(walker, res, WALK_ORDER_CSN);
+  WalkResult(walker, res, WALK_ORDER_CNS);
   MakeAssertion(stack[sp-1] = 3, 'Walker, result');
 
   CursorBufferClose(@inp);
