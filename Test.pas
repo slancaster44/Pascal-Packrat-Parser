@@ -1,8 +1,8 @@
 program UnitTest;
 
-uses Memory, Assertion, CursorBuffer, CharManipulation, 
+uses Memory, Assertion, CursorBuffer, CharManipulation, StrConv,
   ParserCombinators, ParserBytecode, ParserCompiler, 
-  ParserInterpreter, ParserGenerator;
+  ParserInterpreter, ParserGenerator, ResultWalker;
 
 procedure TestAllocator();
 var
@@ -149,8 +149,10 @@ end;
 
 procedure TestCharManip();
 begin
-  MakeAssertion(GetLo(Combine(char(1), char(2))) = char(2), 'Char manip, get lo');
-  MakeAssertion(GetHi(Combine(char(1), char(2))) = char(1), 'Char manip, get hi');
+  MakeAssertion(GetLo(Combine(char(1), char(2))) = char(2), 
+    'Char manip, get lo');
+  MakeAssertion(GetHi(Combine(char(1), char(2))) = char(1), 
+    'Char manip, get hi');
 end;
 
 procedure TestCombinators();
@@ -248,7 +250,8 @@ begin
   MakeAssertion(Parse(@pi, @res), 'Character parser, near eof');
 
   pos0 := CursorBufferPosition(@inp);
-  MakeAssertion(pos0 = CursorBufferLength(@inp), 'Character parser, eof position');
+  MakeAssertion(pos0 = CursorBufferLength(@inp), 
+    'Character parser, eof position');
   MakeAssertion(not Parse(@pi, @res), 'Character parser, eof');
   pos1 := CursorBufferPosition(@inp);
   MakeAssertion(pos0 = pos1, 'Character parser, no eof moving');
@@ -294,7 +297,8 @@ begin
   MakeAssertion(CursorBufferPosition(@inp) = 4, 'Sequence, non-match consume');
   CursorBufferRead(@inp);
   MakeAssertion(not Parse(@pi, @res), 'Sequence, non-match near eof');
-  MakeAssertion(CursorBufferPosition(@inp) = 5, 'Sequence, non-match eof consume');
+  MakeAssertion(CursorBufferPosition(@inp) = 5, 
+    'Sequence, non-match eof consume');
   CursorBufferRead(@inp);
   MakeAssertion(CursorBufferEnd(@inp), 'Sequence, eof');
   MakeAssertion(not Parse(@pi, @res), 'Sequence, parse after eof');
@@ -345,7 +349,9 @@ var
 begin 
   // number := (('0' - '9') + number) | ('0' - '9') 
   digit_parser := SequenceParsers(CharacterRangeParser('0', '9'), nil);
-  number_parser := AlternativeParsers(digit_parser, CharacterRangeParser('0', '9'));
+  number_parser := AlternativeParsers(
+    digit_parser, 
+    CharacterRangeParser('0', '9'));
   PatchRight(digit_parser, number_parser);
 
   DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_WRITE);
@@ -364,7 +370,8 @@ begin
   InitParserInterpreter(@pi, @inp, @cmd);
   
   MakeAssertion(Parse(@pi, @res), 'Nonresult, match');
-  MakeAssertion(CursorBufferPosition(@inp) = 3, 'Nonresult match, location');
+  MakeAssertion(CursorBufferPosition(@inp) = 3, 
+    'Nonresult match, location');
 
   CursorBufferClose(@inp);
   CursorBufferClose(@cmd);
@@ -381,7 +388,8 @@ begin
   InitParserInterpreter(@pi, @inp, @cmd);
 
   MakeAssertion(Parse(@pi, @res), 'Nonresult, short match');
-  MakeAssertion(CursorBufferPosition(@inp) = 2, 'Nonresult short match, location');
+  MakeAssertion(CursorBufferPosition(@inp) = 2, 
+    'Nonresult short match, location');
   
   CursorBufferClose(@inp);
   CursorBufferClose(@cmd);
@@ -441,11 +449,13 @@ var
   res : pParseResult;
 begin
   digit_parser := SequenceParsers(CharacterRangeParser('0', '9'), nil);
-  number_parser := AlternativeParsers(digit_parser, CharacterRangeParser('0', '9'));
+  number_parser := AlternativeParsers(
+    digit_parser, CharacterRangeParser('0', '9'));
   PatchRight(digit_parser, number_parser);
   number_parser := ResultGeneratingParser(number_parser);
 
-  op_parser := AlternativeParsers(CharacterParser('+'), CharacterParser('-'));
+  op_parser := AlternativeParsers(
+    CharacterParser('+'), CharacterParser('-'));
   op_parser := ResultGeneratingParser(op_parser);
   expr_parser := SequenceParsers(SequenceParsers(number_parser, op_parser), nil);
   tmp_parser := AlternativeParsers(expr_parser, number_parser);
@@ -490,7 +500,8 @@ begin
   
   MakeAssertion(Parse(@pi, @res), 'Single number, true/false');
   MakeAssertion(res <> nil, 'Single number, result not null');
-  MakeAssertion(res^.identifier = final_parser^.identifier, 'Single number, id');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 
+    'Single number, id');
   MakeAssertion(res^.start = 0, 'Single number, start');
   MakeAssertion(res^.stop = 2, 'Single number, stop');
   MakeAssertion(res^.sibling = nil, 'Single number, result sibling');
@@ -619,7 +630,8 @@ begin
 
   InitParserInterpreter(@pi, @inp, @cmd);
   MakeAssertion(Parse(@pi, @res), 'Kleene, eof');
-  MakeAssertion(res^.identifier = final_parser^.identifier, 'Kleene, eof identifier');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 
+    'Kleene, eof identifier');
   MakeAssertion(res^.start = 0, 'Kleene, eof start');
   MakeAssertion(res^.start = res^.stop, 'Kleene, eof start/stop');
   MakeAssertion(res^.child = nil, 'Kleene, eof child');
@@ -637,7 +649,8 @@ begin
 
   InitParserInterpreter(@pi, @inp, @cmd);
   MakeAssertion(Parse(@pi, @res), 'Kleene, non-match');
-  MakeAssertion(res^.identifier = final_parser^.identifier, 'Kleene, non-match identifier');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 
+    'Kleene, non-match identifier');
   MakeAssertion(res^.start = 0, 'Kleene, non-match start');
   MakeAssertion(res^.start = res^.stop, 'Kleene, non-match start/stop');
   MakeAssertion(res^.child = nil, 'Kleene, non-match child');
@@ -655,7 +668,8 @@ begin
 
   InitParserInterpreter(@pi, @inp, @cmd);
   MakeAssertion(Parse(@pi, @res), 'Kleene, match');
-  MakeAssertion(res^.identifier = final_parser^.identifier, 'Kleene, match identifier');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 
+    'Kleene, match identifier');
   MakeAssertion(res^.start = 0, 'Kleene, match start');
   MakeAssertion(res^.stop = 1, 'Kleene, match stop');
   MakeAssertion(res^.child = nil, 'Kleene, match child');
@@ -675,7 +689,8 @@ begin
 
   InitParserInterpreter(@pi, @inp, @cmd);
   MakeAssertion(Parse(@pi, @res), 'Kleene, match');
-  MakeAssertion(res^.identifier = final_parser^.identifier, 'Kleene, match identifier');
+  MakeAssertion(res^.identifier = final_parser^.identifier, 
+    'Kleene, match identifier');
   MakeAssertion(res^.start = 0, 'Kleene, match start');
   MakeAssertion(res^.stop = 3, 'Kleene, match stop');
   MakeAssertion(res^.child = nil, 'Kleene, match child');
@@ -1309,7 +1324,8 @@ begin
 
   InitParserInterpreter(@pi, @inp, @gramCmd);
   MakeAssertion(Parse(@pi, @res), 'Recursive declaration, success');
-  MakeAssertion(CursorBufferPosition(@inp) = 1, 'Recursive declaration, length 1');
+  MakeAssertion(CursorBufferPosition(@inp) = 1, 
+    'Recursive declaration, length 1');
 
   CursorBufferClose(@inp);
   CursorBufferClose(@gramCmd);
@@ -1347,6 +1363,106 @@ begin
   CursorBufferClose(@gramCmd);
 end;
 
+var
+  stack : array [0..15] of cardinal;
+  sp : cardinal;
+  inp : rCursorBuffer;
+function NumberHandle(res : pParseResult) : boolean;
+var
+  len : cardinal;
+  buf : array[0..15] of char;
+begin
+  len := res^.stop - res^.start;
+  CursorBufferSeek(@inp, res^.start);
+  CursorBufferReadMultiple(@inp, buf, len);
+  
+  stack[sp] := StrToInt(buf, len, 10);
+  sp := sp + 1;
+  
+  exit (true);
+end;
+
+function ExprHandle(res : pParseResult) : boolean;
+var
+  op : char;
+begin
+  MakeAssertion(sp <> 0, 'Stack empty');
+  
+  if res^.child^.sibling <> nil then
+    begin
+      MakeAssertion(sp <> 1, 'Stack empty');
+      CursorBufferSeek(@inp, res^.child^.stop);
+      sp := sp - 1;
+      if op = '+' then stack[sp-1] := stack[sp-1] + stack[sp];
+      if op = '-' then stack[sp-1] := stack[sp-1] - stack[sp];
+    end;
+
+  exit (true);
+end;
+
+procedure TestResultWalker();
+var
+  alloc : rAllocator;
+  walker : pResultWalker;
+  digit_parser, number_parser, op_parser : pParser;
+  expr_parser, final_parser : pParser;
+  cmd : rCursorBuffer;
+  pi : rParserInterpreter;
+  res : pParseResult;
+begin
+  InitAllocator(@alloc);
+  
+  digit_parser := SequenceParsers(CharacterRangeParser('0', '9'), nil);
+  number_parser := AlternativeParsers(
+    digit_parser, CharacterRangeParser('0', '9'));
+  PatchRight(digit_parser, number_parser);
+  number_parser := ResultGeneratingParser(number_parser);
+
+  op_parser := SequenceParsers(
+    AlternativeParsers(
+      CharacterParser('+'),
+      CharacterParser('-')), 
+    nil);
+  expr_parser := AlternativeParsers(
+    SequenceParsers(number_parser, op_parser),
+    number_parser);
+  expr_parser := ResultGeneratingParser(expr_parser);
+  PatchRight(op_parser, expr_parser);
+
+  final_parser := expr_parser;
+
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_WRITE);
+  CompileParser(@cmd, final_parser);
+  CursorBufferClose(@cmd);
+
+  walker := NewResultWalker(@alloc);
+  sp := 0;
+  AddResultHandle(walker, number_parser^.identifier, (@NumberHandle));
+  AddResultHandle(walker, final_parser^.identifier, (@ExprHandle));
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_WRITE);
+  CursorBufferWrite(@inp, '1');
+  CursorBufferWrite(@inp, '+');
+  CursorBufferWrite(@inp, '5');
+  CursorBufferWrite(@inp, '-');
+  CursorBufferWrite(@inp, '3');
+  CursorBufferClose(@inp);
+
+  DiskCursorBuffer(@inp, 'test.txt', BUFFER_MODE_READ);
+  DiskCursorBuffer(@cmd, 'test.pcmd', BUFFER_MODE_READ);
+  
+  InitParserInterpreter(@pi, @inp, @cmd);
+  MakeAssertion(Parse(@pi, @res), 'Walker, parse expr');
+  // PrintParseResult(res, 0);
+  WalkResult(walker, res, WALK_ORDER_CSN);
+  MakeAssertion(stack[sp-1] = 3, 'Walker, result');
+
+  CursorBufferClose(@inp);
+  CursorBufferClose(@cmd);
+  
+  DestroyAllocator(@alloc);
+end;
+
 begin
   TestAllocator();
   TestBufferCursor();
@@ -1367,6 +1483,7 @@ begin
   TestAssignment();
   TestPatchCombinators();
   TestBackPatchIndirect();
+  TestResultWalker();
 
   writeln('All tests successful');
 end.

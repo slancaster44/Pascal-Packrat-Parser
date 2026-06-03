@@ -1,13 +1,12 @@
+test: all
+	fpc -gl -O- -g ./Test.pas -Fu./bin -FE./bin
+	./bin/Test
 
 generate: all
 	fpc -gl -O- -g ./Generate.pas -Fu./bin -FE./bin
 
 printer: all
 	fpc -gl -O- -g ./Printer.pas -Fu./bin -FE./bin
-
-test: all
-	fpc -gl -O- -g ./Test.pas -Fu./bin -FE./bin
-	./bin/Test
 
 bench: all
 	fpc -gl -O- -g ./Benchmark.pas -Fu./bin -FE./bin
@@ -28,7 +27,11 @@ all: \
 	bytecode \
 	compiler \
 	interpreter \
-	generator
+	generator \
+	walker
+
+walker:
+	fpc -gl -O- -g ./modules/ResultWalker.pas -Fu./bin -FE./bin
 
 generator:
 	fpc -gl -O- -g ./modules/ParserGenerator.pas -Fu./bin -FE./bin
