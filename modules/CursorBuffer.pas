@@ -21,13 +21,13 @@ procedure MemoryCursorBuffer(
 function CursorBufferRead(cb : pCursorBuffer) : char;
 procedure CursorBufferReadMultiple(cb : pCursorBuffer; buf : pChar; bufsize : cardinal);
 procedure CursorBufferWrite(cb : pCursorBuffer; c : char);
+procedure WriteHexAscii(cb : pCursorBuffer; c : char);
 procedure CursorBufferWriteMultiple(cb : pCursorBuffer; buf : acRawStr);
 procedure CursorBufferSeek(cb : pCursorBuffer; pos : cardinal);
 function CursorBufferPosition(cb : pCursorBuffer) : cardinal;
 function CursorBufferLength(cb : pCursorBuffer) : cardinal;
 function CursorBufferEnd(cb : pCursorBuffer) : boolean;
 procedure CursorBufferClose(cb : pCursorBuffer);
-
 
 implementation
 uses Assertion;
@@ -97,6 +97,39 @@ begin
       cb^.content[cb^.cursor] := c;
       cb^.cursor := cb^.cursor + 1;
     end;
+end;
+
+type
+  HexAscii = array [0..1] of char;
+function ConvertHexAscii(c : char) : HexAscii;
+var
+  out : HexAscii;
+  nibble : cardinal;
+begin
+  nibble := cardinal(c) and (15);
+
+  if nibble < 10 then
+    out[1] := char(nibble + cardinal('0'))
+  else
+    out[1] := char(nibble - 10 + cardinal('A'));
+
+  nibble := (cardinal(c) shr 4) and (15);
+
+  if nibble < 10 then
+    out[0] := char(nibble + cardinal('0'))
+  else
+    out[0] := char(nibble - 10 + cardinal('A'));
+
+  exit (out);
+end;
+
+procedure WriteHexAscii(cb : pCursorBuffer; c : char);
+var
+  dat : HexAscii;
+begin
+  dat := ConvertHexAscii(c);
+  CursorBufferWrite(cb, dat[0]);
+  CursorBufferWrite(cb, dat[1]);
 end;
 
 procedure CursorBufferWriteMultiple(cb : pCursorBuffer; buf : acRawStr);

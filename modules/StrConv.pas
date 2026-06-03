@@ -2,7 +2,6 @@ unit StrConv;
 interface
 
 function StrToInt(s : pChar; slen : cardinal; base : cardinal) : cardinal;
-procedure IntToDecStr(i : cardinal; buf : pChar; buflen : cardinal);
 
 implementation
 uses Assertion;
@@ -36,11 +35,6 @@ begin
 			end;
 
 	exit (res);
-end;
-
-procedure IntToDecStr(i : cardinal; buf : pChar; buflen : cardinal);
-begin
-
 end;
 
 end.
